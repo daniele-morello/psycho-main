@@ -32,7 +32,8 @@ export default function Contact() {
 
     const formData = new FormData(form);
     const payload = {
-      name: String(formData.get("name") || ""),
+      name: String(formData.get("name") || "").trim(),
+      surname: String(formData.get("surname") || "").trim(),
       email: String(formData.get("email") || "").trim(),
       phone: String(formData.get("phone") || ""),
       message: String(formData.get("message") || ""),
@@ -196,20 +197,35 @@ export default function Contact() {
                     <input
                       name="name"
                       required
+                      autoComplete="given-name"
                       className={inputClass}
                       placeholder="Il tuo nome"
                     />
                   </div>
                   <div>
                     <label className="block text-sm text-stone-700 mb-2 font-medium">
-                      Telefono
+                      Cognome *
                     </label>
                     <input
-                      name="phone"
+                      name="surname"
+                      required
+                      autoComplete="family-name"
                       className={inputClass}
-                      placeholder="Opzionale"
+                      placeholder="Il tuo cognome"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-stone-700 mb-2 font-medium">
+                    Telefono
+                  </label>
+                  <input
+                    name="phone"
+                    autoComplete="tel"
+                    className={inputClass}
+                    placeholder="Opzionale"
+                  />
                 </div>
 
                 <div>

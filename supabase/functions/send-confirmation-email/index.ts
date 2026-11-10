@@ -12,7 +12,6 @@ const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "onboarding@resend.dev";
 
 interface RequestBody {
   name: string;
-  surname?: string;
   email: string;
   phone?: string;
   service?: string;
@@ -34,7 +33,7 @@ function buildUserEmailHtml(data: RequestBody): string {
       <p style="color:#a3bba6;margin:8px 0 0;font-size:14px;letter-spacing:0.5px;">Studio di Psicoterapia — Dr.ssa Jerarda Damaris Ceglia</p>
     </div>
     <div style="padding:40px 32px;">
-      <p style="color:#4a3f35;font-size:16px;line-height:1.6;">Gentile ${escapeHtml([data.name, data.surname].filter(Boolean).join(" "))},</p>
+      <p style="color:#4a3f35;font-size:16px;line-height:1.6;">Gentile ${escapeHtml(data.name)},</p>
       <p style="color:#4a3f35;font-size:16px;line-height:1.6;">ho ricevuto la tua richiesta di prenotazione. Ti ricontatterò entro 24 ore per fissare la prima consulenza.</p>
       <p style="color:#6f5f50;font-size:14px;margin-bottom:24px;">Ecco un riepilogo delle informazioni che hai inviato:</p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
@@ -63,7 +62,6 @@ function buildUserEmailHtml(data: RequestBody): string {
 function buildTherapistEmailHtml(data: RequestBody): string {
   const rows = [
     { label: "Nome", value: data.name || "—" },
-    { label: "Cognome", value: data.surname || "—" },
     { label: "Email", value: data.email || "—" },
     { label: "Telefono", value: data.phone || "—" },
     { label: "Servizio", value: data.service || "—" },
@@ -165,7 +163,7 @@ Deno.serve(async (req: Request) => {
     // 2. Email di notifica alla terapeuta
     const therapistResult = await sendEmail(
       THERAPIST_EMAIL,
-      `Nuova richiesta da ${[data.name, data.surname].filter(Boolean).join(" ")}`,
+      `Nuova richiesta da ${data.name}`,
       buildTherapistEmailHtml(data)
     );
 

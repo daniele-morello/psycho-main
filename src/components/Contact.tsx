@@ -17,6 +17,18 @@ const services = [
 
 const inputClass =
   "w-full px-4 py-3 rounded-lg border border-stone-300 bg-clay-50/50 text-stone-800 placeholder-stone-400 focus:outline-none focus:border-sage-500 focus:ring-2 focus:ring-sage-200 transition-all";
+const invalidInputClass = " border-red-400 focus:border-red-400 focus:ring-red-100";
+
+type MissingFields = {
+  name?: string;
+  email?: string;
+  message?: string;
+  privacy?: string;
+};
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export default function Contact() {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
@@ -24,7 +36,18 @@ export default function Contact() {
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedService, setSelectedService] = useState(services[0]);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [missingFields, setMissingFields] = useState<MissingFields>({});
   const idempotencyKey = useRef(crypto.randomUUID());
+
+  const clearMissing = (field: keyof MissingFields) => {
+    setMissingFields((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
 
   useEffect(() => {
     // The widget is inactive until VITE_TURNSTILE_SITE_KEY is set. The server
@@ -41,10 +64,37 @@ export default function Contact() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const message = String(formData.get("message") || "").trim();
+    const nextMissing: MissingFields = {};
+
+    if (!name) nextMissing.name = "Inserisci il nome.";
+    if (!email) nextMissing.email = "Inserisci l'email.";
+    else if (!isValidEmail(email)) nextMissing.email = "Inserisci un'email valida.";
+    if (!message) nextMissing.message = "Inserisci un messaggio.";
+    if (!privacyAccepted) {
+      nextMissing.privacy = "Per inviare la richiesta serve il consenso al trattamento dei dati.";
+    }
+
+    setMissingFields(nextMissing);
+    if (Object.keys(nextMissing).length > 0) {
+      setStatus("idle");
+      const firstInvalid = nextMissing.name
+        ? "name"
+        : nextMissing.email
+          ? "email"
+          : nextMissing.message
+            ? "message"
+            : "privacy_accepted";
+      const field = form.elements.namedItem(firstInvalid);
+      if (field instanceof HTMLElement) field.focus();
+      return;
+    }
+
     setStatus("sending");
     setErrorMessage("");
-
-    const formData = new FormData(form);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -56,10 +106,10 @@ export default function Contact() {
 
     const turnstileToken = String(formData.get("cf-turnstile-response") || "");
     const payload = {
-      name: String(formData.get("name") || "").trim(),
-      email: String(formData.get("email") || "").trim(),
+      name,
+      email,
       phone: String(formData.get("phone") || ""),
-      message: String(formData.get("message") || ""),
+      message,
       preferred_time: String(formData.get("preferred_time") || ""),
       service: selectedService,
       privacyAccepted: formData.get("privacy_accepted") === "on",
@@ -103,6 +153,8 @@ export default function Contact() {
     setStatus("success");
     form.reset();
     setSelectedService(services[0]);
+    setPrivacyAccepted(false);
+    setMissingFields({});
   };
 
   return (
@@ -189,6 +241,7 @@ export default function Contact() {
               </div>
             ) : (
               <form
+                noValidate
                 onSubmit={handleSubmit}
                 className="relative bg-clay-50 rounded-2xl p-8 md:p-10 space-y-5"
               >
@@ -211,9 +264,17 @@ export default function Contact() {
                     <input
                       name="name"
                       required
-                      className={inputClass}
+                      aria-invalid={Boolean(missingFields.name)}
+                      aria-describedby={missingFields.name ? "name-error" : undefined}
+                      onInput={() => clearMissing("name")}
+                      className={inputClass + (missingFields.name ? invalidInputClass : "")}
                       placeholder="Il tuo nome"
                     />
+                    {missingFields.name ? (
+                      <p id="name-error" className="mt-2 text-xs text-red-600">
+                        {missingFields.name}
+                      </p>
+                    ) : null}
                   </div>
                   <div>
                     <label className="block text-sm text-stone-700 mb-2 font-medium">
@@ -235,9 +296,17 @@ export default function Contact() {
                     name="email"
                     type="email"
                     required
-                    className={inputClass}
+                    aria-invalid={Boolean(missingFields.email)}
+                    aria-describedby={missingFields.email ? "email-error" : undefined}
+                    onInput={() => clearMissing("email")}
+                    className={inputClass + (missingFields.email ? invalidInputClass : "")}
                     placeholder="la-tua@email.it"
                   />
+                  {missingFields.email ? (
+                    <p id="email-error" className="mt-2 text-xs text-red-600">
+                      {missingFields.email}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div>
@@ -277,27 +346,49 @@ export default function Contact() {
                     required
                     maxLength={2000}
                     rows={4}
-                    className={inputClass + " resize-none"}
+                    aria-invalid={Boolean(missingFields.message)}
+                    aria-describedby={missingFields.message ? "message-error" : undefined}
+                    onInput={() => clearMissing("message")}
+                    className={inputClass + " resize-none" + (missingFields.message ? invalidInputClass : "")}
                     placeholder="Raccontami brevemente come posso aiutarti..."
                   />
+                  {missingFields.message ? (
+                    <p id="message-error" className="mt-2 text-xs text-red-600">
+                      {missingFields.message}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-stone-500 leading-relaxed">
                     Non inserire informazioni cliniche, diagnosi o dettagli
                     sanitari in questo modulo.
                   </p>
                 </div>
 
-                <label className="flex items-start gap-3 text-sm text-stone-700">
-                  <input
-                    name="privacy_accepted"
-                    type="checkbox"
-                    required
-                    className="mt-1"
-                  />
-                  <span>
-                    Acconsento al trattamento dei dati inseriti per essere
-                    ricontattato, come descritto nell'informativa privacy.
-                  </span>
-                </label>
+                <div>
+                  <label className="flex items-start gap-3 text-sm text-stone-700">
+                    <input
+                      name="privacy_accepted"
+                      type="checkbox"
+                      required
+                      checked={privacyAccepted}
+                      aria-invalid={Boolean(missingFields.privacy)}
+                      aria-describedby={missingFields.privacy ? "privacy-error" : undefined}
+                      onChange={(e) => {
+                        setPrivacyAccepted(e.target.checked);
+                        if (e.target.checked) clearMissing("privacy");
+                      }}
+                      className={"mt-1" + (missingFields.privacy ? " outline outline-2 outline-red-400" : "")}
+                    />
+                    <span>
+                      Acconsento al trattamento dei dati inseriti per essere
+                      ricontattato, come descritto nell'informativa privacy.
+                    </span>
+                  </label>
+                  {missingFields.privacy ? (
+                    <p id="privacy-error" className="mt-2 text-xs text-red-600">
+                      {missingFields.privacy}
+                    </p>
+                  ) : null}
+                </div>
 
                 {TURNSTILE_SITE_KEY ? (
                   <div
@@ -316,7 +407,7 @@ export default function Contact() {
                 <button
                   type="submit"
                   disabled={status === "sending"}
-                  className="w-full px-6 py-4 rounded-full bg-sage-600 text-clay-50 text-sm tracking-wide hover:bg-sage-700 transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full px-6 py-4 rounded-full bg-sage-600 text-clay-50 text-sm tracking-wide hover:bg-sage-700 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {status === "sending" ? (
                     <>

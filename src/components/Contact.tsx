@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { MapPin, Phone, Mail, Clock, CheckCircle2, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+
+const PRIVACY_VERSION = "2026-11-10";
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const services = [
   "Psicoterapia individuale",
@@ -21,8 +23,20 @@ export default function Contact() {
     "idle"
   );
   const [errorMessage, setErrorMessage] = useState("");
-  const [sentTo, setSentTo] = useState("");
   const [selectedService, setSelectedService] = useState(services[0]);
+  const idempotencyKey = useRef(crypto.randomUUID());
+
+  useEffect(() => {
+    // The widget is inactive until VITE_TURNSTILE_SITE_KEY is set. The server
+    // enforces Turnstile only when TURNSTILE_SECRET_KEY is configured.
+    if (!TURNSTILE_SITE_KEY || document.querySelector("script[data-turnstile]")) return;
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+    script.dataset.turnstile = "true";
+    document.head.appendChild(script);
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,6 +45,16 @@ export default function Contact() {
     setErrorMessage("");
 
     const formData = new FormData(form);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setErrorMessage("Invio non disponibile in questo momento.");
+      setStatus("error");
+      return;
+    }
+
+    const turnstileToken = String(formData.get("cf-turnstile-response") || "");
     const payload = {
       name: String(formData.get("name") || "").trim(),
       email: String(formData.get("email") || "").trim(),
@@ -38,63 +62,44 @@ export default function Contact() {
       message: String(formData.get("message") || ""),
       preferred_time: String(formData.get("preferred_time") || ""),
       service: selectedService,
+      privacyAccepted: formData.get("privacy_accepted") === "on",
+      privacyVersion: PRIVACY_VERSION,
+      idempotencyKey: idempotencyKey.current,
+      turnstileToken,
+      company_website: String(formData.get("company_website") || ""),
     };
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    if (!supabase || !supabaseUrl || !supabaseAnonKey) {
-      setErrorMessage(
-        "Invio non configurato: mancano le variabili Supabase nel file .env."
-      );
-      setStatus("error");
-      return;
-    }
-
-    const { error } = await supabase.from("contact_requests").insert(payload);
-
-    if (error) {
-      setErrorMessage(
-        "Non sono riuscita a registrare la richiesta. Riprova o scrivimi direttamente."
-      );
-      setStatus("error");
-      return;
-    }
-
     try {
-      const res = await fetch(
+      const response = await fetch(
         `${supabaseUrl}/functions/v1/send-confirmation-email`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
-      const body = (await res.json().catch(() => null)) as {
-        emailSent?: boolean;
-        error?: string;
-      } | null;
+      const result = (await response.json().catch(() => null)) as { received?: boolean; code?: string } | null;
 
-      if (!res.ok || !body?.emailSent) {
+      if (!response.ok || !result?.received) {
         setErrorMessage(
-          body?.error ||
-            "La richiesta è salvata, ma la mail di conferma al mittente non è partita."
+          result?.code === "rate_limited"
+            ? "Hai inviato troppe richieste. Riprova più tardi."
+            : "Non è stato possibile inviare la richiesta. Riprova più tardi.",
         );
         setStatus("error");
         return;
       }
     } catch {
-      setErrorMessage(
-        "La richiesta è salvata, ma la mail di conferma al mittente non è partita."
-      );
+      setErrorMessage("Non è stato possibile inviare la richiesta. Riprova più tardi.");
       setStatus("error");
       return;
     }
 
-    setSentTo(payload.email);
+    idempotencyKey.current = crypto.randomUUID();
     setStatus("success");
     form.reset();
     setSelectedService(services[0]);
@@ -172,9 +177,8 @@ export default function Contact() {
                   Messaggio ricevuto
                 </h3>
                 <p className="text-stone-600 leading-relaxed mb-6 max-w-sm">
-                  Grazie per avermi contattata. Una mail di conferma è in
-                  arrivo su {sentTo}. Ti risponderò entro 24 ore per fissare la
-                  prima consulenza.
+                  Grazie per avermi contattata. Ho ricevuto la tua richiesta e
+                  ti risponderò entro 24 ore.
                 </p>
                 <button
                   onClick={() => setStatus("idle")}
@@ -186,8 +190,19 @@ export default function Contact() {
             ) : (
               <form
                 onSubmit={handleSubmit}
-                className="bg-clay-50 rounded-2xl p-8 md:p-10 space-y-5"
+                className="relative bg-clay-50 rounded-2xl p-8 md:p-10 space-y-5"
               >
+                <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+                  <label>
+                    Sito web
+                    <input
+                      name="company_website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                    />
+                  </label>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm text-stone-700 mb-2 font-medium">
@@ -260,11 +275,36 @@ export default function Contact() {
                   <textarea
                     name="message"
                     required
+                    maxLength={2000}
                     rows={4}
                     className={inputClass + " resize-none"}
                     placeholder="Raccontami brevemente come posso aiutarti..."
                   />
+                  <p className="mt-2 text-xs text-stone-500 leading-relaxed">
+                    Non inserire informazioni cliniche, diagnosi o dettagli
+                    sanitari in questo modulo.
+                  </p>
                 </div>
+
+                <label className="flex items-start gap-3 text-sm text-stone-700">
+                  <input
+                    name="privacy_accepted"
+                    type="checkbox"
+                    required
+                    className="mt-1"
+                  />
+                  <span>
+                    Acconsento al trattamento dei dati inseriti per essere
+                    ricontattato, come descritto nell'informativa privacy.
+                  </span>
+                </label>
+
+                {TURNSTILE_SITE_KEY ? (
+                  <div
+                    className="cf-turnstile"
+                    data-sitekey={TURNSTILE_SITE_KEY}
+                  />
+                ) : null}
 
                 {status === "error" && (
                   <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3 border border-red-200">

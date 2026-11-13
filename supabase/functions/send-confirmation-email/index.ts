@@ -147,6 +147,7 @@ function isValidEmail(email: string): boolean {
 
 function validate(body: Payload): { ok: true; data: Record<string, string> } | { ok: false } {
   const name = asText(body.name, 80);
+  const surname = asText(body.surname, 80);
   const email = asText(body.email, 254).toLowerCase();
   const phone = asText(body.phone, 30);
   const service = asText(body.service, 80);
@@ -155,6 +156,7 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
   const idempotencyKey = asText(body.idempotencyKey, 36);
 
   if (!/^[\p{L}][\p{L}\s'.-]{0,79}$/u.test(name)) return { ok: false };
+  if (!/^[\p{L}][\p{L}\s'.-]{0,79}$/u.test(surname)) return { ok: false };
   if (!isValidEmail(email)) return { ok: false };
   if (phone && !/^[0-9+().\s-]{6,30}$/.test(phone)) return { ok: false };
   if (!SERVICES.includes(service)) return { ok: false };
@@ -169,7 +171,7 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
 
   return {
     ok: true,
-    data: { name, email, phone, service, preferredTime, message, idempotencyKey },
+    data: { name, surname, email, phone, service, preferredTime, message, idempotencyKey },
   };
 }
 
@@ -304,6 +306,7 @@ Deno.serve(async (request: Request) => {
 
   const { error: insertError } = await supabase.from("contact_requests").insert({
     name: data.name,
+    surname: data.surname,
     email: data.email,
     phone: data.phone || null,
     service: data.service,
@@ -327,7 +330,7 @@ Deno.serve(async (request: Request) => {
     return received(request);
   }
 
-  const safeName = escapeHtml(data.name);
+  const safeName = escapeHtml(`${data.name} ${data.surname}`);
   await sendEmail(
     "confirmation",
     data.email,

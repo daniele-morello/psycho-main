@@ -31,9 +31,6 @@ const SERVICES = [
   "Psicoterapia individuale",
   "Terapia di coppia",
   "Psicologia clinica",
-  "Counseling",
-  "Supervisione",
-  "Mindfulness",
   "Altro",
 ];
 

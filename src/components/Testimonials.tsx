@@ -51,7 +51,7 @@ export default function Testimonials() {
         </div>
 
         <p className="text-center text-xs text-stone-500 mt-12 reveal">
-          I testimonianze sono riportate con il consenso degli interessati. Nomi
+          Le testimonianze sono riportate con il consenso degli interessati. Nomi
           e dettagli sono stati modificati per tutelare la riservatezza.
         </p>
       </div>

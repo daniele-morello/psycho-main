@@ -1,4 +1,4 @@
-import { Heart, Users, Sparkles, Brain, BookOpen, Sun } from "lucide-react";
+import { Heart, Users, Brain } from "lucide-react";
 
 const services = [
   {
@@ -15,21 +15,6 @@ const services = [
     icon: Brain,
     title: "Psicologia clinica",
     text: "Valutazione psicodiagnostica, consulenza e supporto per difficoltà emotive e psicologiche.",
-  },
-  {
-    icon: Sparkles,
-    title: "Counseling",
-    text: "Percorsi brevi di supporto per affrontare sfide specifiche e prendere decisioni con maggiore chiarezza.",
-  },
-  {
-    icon: BookOpen,
-    title: "Supervisione",
-    text: "Supervisione clinica per colleghi psicologi e psicoterapeuti in formazione o in attività professionale.",
-  },
-  {
-    icon: Sun,
-    title: "Percorsi di mindfulness",
-    text: "Tecniche di gestione dello stress, mindfulness e meditazione per coltivare consapevolezza ed equilibrio.",
   },
 ];
 

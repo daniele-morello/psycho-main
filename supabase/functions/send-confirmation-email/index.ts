@@ -328,11 +328,44 @@ Deno.serve(async (request: Request) => {
   }
 
   const safeName = escapeHtml(`${data.name} ${data.surname}`);
+  const summaryRows = [
+    { label: "Servizio di interesse", value: data.service || "—" },
+    { label: "Orario preferito", value: data.preferredTime || "—" },
+    { label: "Telefono", value: data.phone || "—" },
+  ];
+  const confirmationHtml = `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#f5f1ec;font-family:Georgia,'Times New Roman',serif;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e6d4c3;">
+    <div style="background:#3b5440;padding:40px 32px;text-align:center;">
+      <h1 style="color:#f4f7f4;margin:0;font-size:26px;font-weight:400;">Richiesta ricevuta</h1>
+      <p style="color:#a3bba6;margin:8px 0 0;font-size:14px;letter-spacing:0.5px;">Studio di Psicoterapia — Dr.ssa Jerarda Damaris Ceglia</p>
+    </div>
+    <div style="padding:40px 32px;">
+      <p style="color:#4a3f35;font-size:16px;line-height:1.6;">Gentile ${safeName},</p>
+      <p style="color:#4a3f35;font-size:16px;line-height:1.6;text-align:justify;">ho ricevuto la tua richiesta di prenotazione. Ti ricontatterò entro 24 ore per fissare la prima consulenza.</p>
+      <p style="color:#6f5f50;font-size:14px;margin-bottom:24px;">Ecco un riepilogo delle informazioni che hai inviato:</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        ${summaryRows
+          .map(
+            (row) => `<tr>
+            <td style="padding:10px 0;border-bottom:1px solid #ebe4dc;color:#6f5f50;font-size:14px;">${row.label}</td>
+            <td style="padding:10px 0;border-bottom:1px solid #ebe4dc;color:#2e261f;font-size:14px;text-align:right;">${escapeHtml(row.value)}</td>
+          </tr>`,
+          )
+          .join("")}
+      </table>
+      <p style="color:#6f5f50;font-size:14px;line-height:1.6;">Con i miei più cordiali saluti,<br/><strong style="color:#3b5440;">Dr.ssa Jerarda Damaris Ceglia</strong><br/>Psicologa e Psicoterapeuta</p>
+    </div>
+    <div style="padding:20px 32px;background:#faf6f1;text-align:center;">
+      <p style="color:#a89684;font-size:12px;margin:0;">Questa email è generata automaticamente. Per qualsiasi domanda puoi scrivere a ${THERAPIST_EMAIL}</p>
+    </div>
+  </div>
+</body></html>`;
   await sendEmail(
     "confirmation",
     data.email,
-    "Richiesta ricevuta — Dr.ssa Jerarda Damaris Ceglia",
-    `<p>Gentile ${safeName},</p><p>ho ricevuto la tua richiesta di contatto e ti risponderò entro 24 ore.</p><p>Dr.ssa Jerarda Damaris Ceglia</p>`,
+    "Riepilogo della tua richiesta — Dr.ssa Jerarda Damaris Ceglia",
+    confirmationHtml,
     resendKey,
     from,
   );

@@ -33,6 +33,9 @@ const SERVICES = [
   "Psicologia clinica",
   "Altro",
 ];
+const CONSULTATION_MODES = ["Online", "In presenza"];
+const PERSON_NAME = /^[\p{L}][\p{L}\p{M}\s'\u2018\u2019\u02BC-]{0,79}$/u;
+const PHONE_NUMBER = /^\+?[0-9]{6,30}$/;
 
 const DEFAULT_ORIGINS = [
   "http://localhost:5173",
@@ -149,14 +152,16 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
   const phone = asText(body.phone, 30);
   const service = asText(body.service, 80);
   const preferredTime = asText(body.preferred_time, 120);
+  const consultationMode = asText(body.consultation_mode, 20);
   const message = asText(body.message, 2000);
   const idempotencyKey = asText(body.idempotencyKey, 36);
 
-  if (!/^[\p{L}][\p{L}\s'.-]{0,79}$/u.test(name)) return { ok: false };
-  if (!/^[\p{L}][\p{L}\s'.-]{0,79}$/u.test(surname)) return { ok: false };
+  if (!PERSON_NAME.test(name)) return { ok: false };
+  if (!PERSON_NAME.test(surname)) return { ok: false };
   if (!isValidEmail(email)) return { ok: false };
-  if (phone && !/^[0-9+().\s-]{6,30}$/.test(phone)) return { ok: false };
+  if (phone && !PHONE_NUMBER.test(phone)) return { ok: false };
   if (!SERVICES.includes(service)) return { ok: false };
+  if (!CONSULTATION_MODES.includes(consultationMode)) return { ok: false };
   if (preferredTime.length > 120) return { ok: false };
   if (message.length < 1 || message.length > 2000) return { ok: false };
   if (body.privacyAccepted !== true || body.privacyVersion !== PRIVACY_VERSION) {
@@ -168,7 +173,7 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
 
   return {
     ok: true,
-    data: { name, surname, email, phone, service, preferredTime, message, idempotencyKey },
+    data: { name, surname, email, phone, service, consultationMode, preferredTime, message, idempotencyKey },
   };
 }
 
@@ -307,6 +312,7 @@ Deno.serve(async (request: Request) => {
     email: data.email,
     phone: data.phone || null,
     service: data.service,
+    consultation_mode: data.consultationMode,
     preferred_time: data.preferredTime || null,
     message: data.message,
     privacy_accepted_at: new Date().toISOString(),
@@ -330,6 +336,7 @@ Deno.serve(async (request: Request) => {
   const safeName = escapeHtml(`${data.name} ${data.surname}`);
   const summaryRows = [
     { label: "Servizio di interesse", value: data.service || "—" },
+    { label: "Modalità della consulenza", value: data.consultationMode || "—" },
     { label: "Orario preferito", value: data.preferredTime || "—" },
     { label: "Telefono", value: data.phone || "—" },
   ];

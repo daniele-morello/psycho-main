@@ -31,6 +31,36 @@ export default function Footer() {
             <a href="#contact" className="hover:text-sage-400 transition-colors">
               Contatti
             </a>
+            <a
+              href={`${import.meta.env.BASE_URL}informativa-privacy.html`}
+              className="hover:text-sage-400 transition-colors"
+            >
+              Informativa sulla Privacy
+            </a>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=Via%20dei%20Colli%2018%2C%20Padova"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-allow-select=""
+              className="hover:text-sage-400 transition-colors select-text"
+            >
+              Via dei Colli 18, Padova
+              <span className="sr-only">, apre Google Maps</span>
+            </a>
+            <a
+              href="tel:+393401234567"
+              data-allow-select=""
+              className="hover:text-sage-400 transition-colors select-text"
+            >
+              +39 340 123 4567
+            </a>
+            <a
+              href="mailto:jerardadamarisceglia@gmail.com"
+              data-allow-select=""
+              className="hover:text-sage-400 transition-colors select-text"
+            >
+              jerardadamarisceglia@gmail.com
+            </a>
           </nav>
         </div>
 

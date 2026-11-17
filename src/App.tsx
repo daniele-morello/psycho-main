@@ -13,7 +13,7 @@ export default function App() {
   useReveal();
 
   return (
-    <div className="min-h-screen bg-clay-50 overflow-x-hidden">
+    <div className="min-h-screen bg-clay-50 overflow-x-clip">
       <Navbar />
       <main>
         <Hero />

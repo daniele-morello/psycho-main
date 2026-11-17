@@ -11,6 +11,24 @@
   body {
     @apply font-jost bg-stone-50 text-stone-800 antialiased;
   }
+  header :where(a, button, span),
+  main :where(h1, h2, h3, h4, p, li, button, label, span, a, blockquote, figcaption),
+  footer :where(p, span, a) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input, textarea,
+  [data-allow-select], [data-allow-select] *,
+  [role="dialog"], [role="dialog"] * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  .portrait-protected {
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
   h1, h2, h3, h4 {
     @apply font-cormorant;
   }
@@ -55,7 +73,7 @@
 }
 .reveal.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 ::-webkit-scrollbar {

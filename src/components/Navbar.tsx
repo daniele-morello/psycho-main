@@ -49,7 +49,7 @@ export default function Navbar() {
           </span>
         </a>
 
-        <ul className="hidden md:flex items-center gap-9">
+        <ul className="hidden lg:flex items-center gap-9">
           {links.map((l) => (
             <li key={l.href}>
               <a
@@ -68,7 +68,7 @@ export default function Navbar() {
 
         <a
           href="#contact"
-          className={`hidden md:inline-flex items-center px-5 py-2.5 rounded-full text-sm tracking-wide transition-all duration-300 ${
+          className={`hidden lg:inline-flex items-center px-5 py-2.5 rounded-full text-sm tracking-wide transition-all duration-300 ${
             scrolled
               ? "bg-sage-600 text-clay-50 hover:bg-sage-700 shadow-sm"
               : "bg-white/15 text-white border border-white/30 backdrop-blur-sm hover:bg-white/25"
@@ -78,7 +78,7 @@ export default function Navbar() {
         </a>
 
         <button
-          className={`md:hidden ${scrolled ? "text-stone-700" : "text-white"}`}
+          className={`lg:hidden ${scrolled ? "text-stone-700" : "text-white"}`}
           onClick={() => setOpen((o) => !o)}
           aria-label="Menu"
         >
@@ -87,7 +87,7 @@ export default function Navbar() {
       </nav>
 
       {open && (
-        <div className="md:hidden bg-clay-50 border-t border-stone-200">
+        <div className="lg:hidden bg-clay-50 border-t border-stone-200">
           <ul className="px-6 py-4 space-y-3">
             {links.map((l) => (
               <li key={l.href}>

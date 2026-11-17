@@ -28,7 +28,10 @@ export default function About() {
             <img
               src="https://images.pexels.com/photos/4098357/pexels-photo-4098357.jpeg?auto=compress&cs=tinysrgb&w=800"
               alt="Dr.ssa Jerarda Damaris Ceglia"
-              className="rounded-2xl shadow-xl w-full object-cover"
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
+              onContextMenu={(event) => event.preventDefault()}
+              className="portrait-protected rounded-2xl shadow-xl w-full object-cover"
             />
             <div className="absolute -bottom-6 -right-6 bg-clay-50 p-5 rounded-xl shadow-lg max-w-[200px] hidden sm:block">
               <p className="font-cormorant text-3xl text-sage-600">15+</p>

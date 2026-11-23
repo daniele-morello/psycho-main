@@ -18,8 +18,8 @@ const hoursText = (h: number) => (h === 1 ? "1 ora" : `${h} ore`);
 
 export function paymentDeadlineText(t: PaymentTerms): string {
   return t.payment_cutoff_hours > 0
-    ? `Il pagamento va completato entro ${hoursText(t.payment_window_hours)} dalla conferma dell'appuntamento e comunque almeno ${hoursText(t.payment_cutoff_hours)} prima della seduta. Se non arriva in tempo, l'appuntamento viene annullato e l'orario torna disponibile.`
-    : `Il pagamento va completato entro ${hoursText(t.payment_window_hours)} dalla conferma dell'appuntamento. Se non arriva in tempo, l'appuntamento viene annullato e l'orario torna disponibile.`;
+    ? `Il pagamento va completato entro ${hoursText(t.payment_window_hours)} dalla conferma dell'appuntamento e comunque almeno ${hoursText(t.payment_cutoff_hours)} prima della seduta. Se non arriva in tempo, l'appuntamento viene annullato.`
+    : `Il pagamento va completato entro ${hoursText(t.payment_window_hours)} dalla conferma dell'appuntamento. Se non arriva in tempo, l'appuntamento viene annullato.`;
 }
 
 export function cancellationText(t: PaymentTerms): string {
@@ -31,8 +31,6 @@ export function cancellationText(t: PaymentTerms): string {
   return note ? `${base} ${note}` : base;
 }
 
-export function videoText(t: PaymentTerms): string {
-  const platform = t.video_platform?.trim();
-  const instructions = t.video_instructions?.trim();
-  return [platform ? `La seduta si svolge su ${platform}.` : "", instructions ?? ""].filter(Boolean).join(" ");
-}
+export const platformText = (t: PaymentTerms): string | null => t.video_platform?.trim() || null;
+
+export const videoInstructionsText = (t: PaymentTerms): string | null => t.video_instructions?.trim() || null;

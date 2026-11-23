@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { PaymentSettings, RequestsApi } from "@/admin/api";
-import { cancellationText, formatEuro, paymentDeadlineText, videoText } from "@/lib/paymentText";
+import {
+  cancellationText,
+  formatEuro,
+  paymentDeadlineText,
+  platformText,
+  videoInstructionsText,
+} from "@/lib/paymentText";
 
 const inputClass =
   "px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 focus:outline-none focus:border-sage-500 focus:ring-2 focus:ring-sage-200";
@@ -209,9 +215,12 @@ export default function Payment({ api }: { api: RequestsApi }) {
         <p>
           <strong>Disdetta:</strong> {cancellationText(terms)}
         </p>
-        {videoText(terms) && (
+        <p>
+          <strong>Piattaforma usata:</strong> {platformText(terms) ?? "non impostata"}
+        </p>
+        {videoInstructionsText(terms) && (
           <p>
-            <strong>Videochiamata:</strong> {videoText(terms)}
+            <strong>Videochiamata:</strong> {videoInstructionsText(terms)}
           </p>
         )}
       </section>

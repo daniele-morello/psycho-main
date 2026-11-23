@@ -6,6 +6,7 @@ import Requests from "@/admin/Requests";
 import Settings from "@/admin/Settings";
 import Blocks from "@/admin/Blocks";
 import Availability from "@/admin/Availability";
+import Payment from "@/admin/Payment";
 import { supabaseApi, type RequestsApi } from "@/admin/api";
 
 const IDLE_LIMIT_MS = 20 * 60 * 1000;
@@ -235,7 +236,7 @@ export function Shell({
   api: RequestsApi;
   demo?: boolean;
 }) {
-  const [tab, setTab] = useState<"requests" | "settings" | "blocks" | "availability">("requests");
+  const [tab, setTab] = useState<"requests" | "settings" | "blocks" | "availability" | "payment">("requests");
   const tabClass = (active: boolean) =>
     "px-3 py-1.5 rounded-full text-sm " +
     (active ? "bg-white text-sage-800" : "text-sage-100 hover:text-white");
@@ -260,6 +261,9 @@ export function Shell({
             <button onClick={() => setTab("availability")} aria-pressed={tab === "availability"} className={tabClass(tab === "availability")}>
               Disponibilità
             </button>
+            <button onClick={() => setTab("payment")} aria-pressed={tab === "payment"} className={tabClass(tab === "payment")}>
+              Pagamento e disdetta
+            </button>
           </nav>
           <button onClick={onSignOut} className="flex items-center gap-2 text-sm text-sage-100 hover:text-white">
             <LogOut className="w-4 h-4" /> Esci
@@ -272,8 +276,10 @@ export function Shell({
         <Settings api={api} />
       ) : tab === "blocks" ? (
         <Blocks api={api} />
-      ) : (
+      ) : tab === "availability" ? (
         <Availability api={api} />
+      ) : (
+        <Payment api={api} />
       )}
     </div>
   );

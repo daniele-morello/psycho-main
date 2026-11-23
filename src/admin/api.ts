@@ -50,6 +50,19 @@ export type NewBlock = {
   label: string;
 };
 
+export type PaymentSettings = {
+  online_price_cents: number | null;
+  payment_window_hours: number;
+  payment_cutoff_hours: number;
+  refund_notice_hours: number;
+  cancellation_note: string | null;
+  video_platform: string | null;
+  video_instructions: string | null;
+};
+
+const PAYMENT_COLUMNS =
+  "online_price_cents,payment_window_hours,payment_cutoff_hours,refund_notice_hours,cancellation_note,video_platform,video_instructions";
+
 export type AvailabilityPreview = {
   slots: string[]; // ISO
   calendar: "ok" | "not_configured" | "error";
@@ -67,6 +80,8 @@ export type RequestsApi = {
   addBlock(block: NewBlock): Promise<void>;
   removeBlock(id: string): Promise<void>;
   previewAvailability(): Promise<AvailabilityPreview>;
+  getPayment(): Promise<PaymentSettings>;
+  savePayment(p: PaymentSettings): Promise<void>;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
@@ -165,6 +180,15 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
       if (error) throw error;
       return data as AvailabilityPreview;
     },
+    async getPayment() {
+      const { data, error } = await client.from("booking_settings").select(PAYMENT_COLUMNS).single();
+      if (error) throw error;
+      return data as PaymentSettings;
+    },
+    async savePayment(p) {
+      const { error } = await client.from("booking_settings").update(p).eq("id", true);
+      if (error) throw error;
+    },
   };
 }
 
@@ -243,7 +267,22 @@ export function demoApi(): RequestsApi {
       label: "Ferie",
     },
   ];
+  let payment: PaymentSettings = {
+    online_price_cents: 7000,
+    payment_window_hours: 48,
+    payment_cutoff_hours: 24,
+    refund_notice_hours: 48,
+    cancellation_note: null,
+    video_platform: "Esempio Video",
+    video_instructions: "Riceverai il link della videochiamata via email il giorno prima della seduta.",
+  };
   return {
+    async getPayment() {
+      return { ...payment };
+    },
+    async savePayment(p) {
+      payment = { ...p };
+    },
     async previewAvailability() {
       const slots: string[] = [];
       for (let i = 2; i <= 9; i++) {

@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, LockKeyhole, LogOut, ShieldCheck } from "lucide-react";
 import Requests from "@/admin/Requests";
+import Settings from "@/admin/Settings";
 import { supabaseApi, type RequestsApi } from "@/admin/api";
 
 const IDLE_LIMIT_MS = 20 * 60 * 1000;
@@ -232,20 +233,32 @@ export function Shell({
   api: RequestsApi;
   demo?: boolean;
 }) {
+  const [tab, setTab] = useState<"requests" | "settings">("requests");
+  const tabClass = (active: boolean) =>
+    "px-3 py-1.5 rounded-full text-sm " +
+    (active ? "bg-white text-sage-800" : "text-sage-100 hover:text-white");
   return (
     <div className="min-h-screen">
       <header className="bg-sage-800 text-white">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-2 min-h-14 flex flex-wrap items-center justify-between gap-2">
           <p className="font-medium">
             Area riservata
             {demo && <span className="ml-2 text-xs bg-clay-400 text-white rounded px-2 py-0.5">DEMO – dati inventati</span>}
           </p>
+          <nav className="flex items-center gap-1 order-3 sm:order-none w-full sm:w-auto" aria-label="Sezioni">
+            <button onClick={() => setTab("requests")} aria-pressed={tab === "requests"} className={tabClass(tab === "requests")}>
+              Richieste
+            </button>
+            <button onClick={() => setTab("settings")} aria-pressed={tab === "settings"} className={tabClass(tab === "settings")}>
+              Impostazioni prenotazioni
+            </button>
+          </nav>
           <button onClick={onSignOut} className="flex items-center gap-2 text-sm text-sage-100 hover:text-white">
             <LogOut className="w-4 h-4" /> Esci
           </button>
         </div>
       </header>
-      <Requests api={api} />
+      {tab === "requests" ? <Requests api={api} /> : <Settings api={api} />}
     </div>
   );
 }

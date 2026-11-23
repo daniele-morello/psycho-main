@@ -17,13 +17,31 @@ export type ContactRequest = {
   status_changed_at: string | null;
 };
 
+export type WorkingInterval = {
+  weekday: number; // 1 = lunedì ... 7 = domenica
+  start_time: string; // "HH:MM"
+  end_time: string;
+};
+
+export type BookingSettings = {
+  session_minutes: number;
+  buffer_minutes: number;
+  min_notice_hours: number;
+  max_days_ahead: number;
+  hours: WorkingInterval[];
+};
+
 export type RequestsApi = {
   list(): Promise<ContactRequest[]>;
   setStatus(id: string, status: RequestStatus): Promise<void>;
   remove(id: string): Promise<void>;
   countExpired(): Promise<number>;
   deleteExpired(): Promise<number>;
+  getSettings(): Promise<BookingSettings>;
+  saveSettings(settings: BookingSettings): Promise<void>;
 };
+
+const hhmm = (t: string) => t.slice(0, 5);
 
 const COLUMNS =
   "id,created_at,name,surname,email,phone,service,consultation_mode,preferred_time,message,status,status_changed_at";
@@ -56,6 +74,39 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
       const { data, error } = await client.rpc("delete_expired_contact_requests");
       if (error) throw error;
       return Number(data ?? 0);
+    },
+    async getSettings() {
+      const [settings, hours] = await Promise.all([
+        client
+          .from("booking_settings")
+          .select("session_minutes,buffer_minutes,min_notice_hours,max_days_ahead")
+          .single(),
+        client
+          .from("working_hours")
+          .select("weekday,start_time,end_time")
+          .order("weekday")
+          .order("start_time"),
+      ]);
+      if (settings.error) throw settings.error;
+      if (hours.error) throw hours.error;
+      return {
+        ...(settings.data as Omit<BookingSettings, "hours">),
+        hours: (hours.data ?? []).map((h) => ({
+          weekday: h.weekday as number,
+          start_time: hhmm(h.start_time as string),
+          end_time: hhmm(h.end_time as string),
+        })),
+      };
+    },
+    async saveSettings(s) {
+      const { error } = await client.rpc("save_booking_settings", {
+        p_session_minutes: s.session_minutes,
+        p_buffer_minutes: s.buffer_minutes,
+        p_min_notice_hours: s.min_notice_hours,
+        p_max_days_ahead: s.max_days_ahead,
+        p_hours: s.hours,
+      });
+      if (error) throw error;
     },
   };
 }
@@ -113,7 +164,23 @@ export function demoApi(): RequestsApi {
     (r.status === "closed" &&
       new Date(r.status_changed_at ?? r.created_at).getTime() < now - 182 * day) ||
     new Date(r.created_at).getTime() < now - 365 * day;
+  let settings: BookingSettings = {
+    session_minutes: 50,
+    buffer_minutes: 10,
+    min_notice_hours: 24,
+    max_days_ahead: 60,
+    hours: [1, 2, 3, 4, 5].flatMap((weekday) => [
+      { weekday, start_time: "09:00", end_time: "13:00" },
+      { weekday, start_time: "15:00", end_time: "19:00" },
+    ]),
+  };
   return {
+    async getSettings() {
+      return { ...settings, hours: settings.hours.map((h) => ({ ...h })) };
+    },
+    async saveSettings(s) {
+      settings = { ...s, hours: s.hours.map((h) => ({ ...h })) };
+    },
     async list() {
       return rows.map((r) => ({ ...r }));
     },

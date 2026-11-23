@@ -22,7 +22,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 // ingress. Auth ha Sb-Forwarded-For, ma vale solo per Auth e solo con chiave
 // segreta: non si applica a questa funzione pubblica.
 
-const PRIVACY_VERSION = "2026-11-10";
+// Versione attuale dell'informativa. Durante il passaggio è accettata anche la
+// precedente, così il sito già pubblicato continua a funzionare finché non arriva
+// il push. Con la richiesta si salva la versione che la persona ha visto davvero.
+// Togliere "2026-11-10" dopo che il nuovo sito è online.
+const PRIVACY_VERSION = "2026-11-23";
+const ACCEPTED_PRIVACY_VERSIONS = [PRIVACY_VERSION, "2026-11-10"];
 const IDEMPOTENCY_CONSTRAINT = "contact_requests_idempotency_key_key";
 const RATE_LIMIT_PER_HOUR = 5;
 const MAX_BODY_BYTES = 20_000;
@@ -163,8 +168,10 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
   if (!SERVICES.includes(service)) return { ok: false };
   if (!CONSULTATION_MODES.includes(consultationMode)) return { ok: false };
   if (preferredTime.length > 120) return { ok: false };
-  if (message.length < 1 || message.length > 2000) return { ok: false };
-  if (body.privacyAccepted !== true || body.privacyVersion !== PRIVACY_VERSION) {
+  // Il messaggio è facoltativo: se manca si salva una stringa vuota (colonna NOT NULL).
+  if (message.length > 2000) return { ok: false };
+  const privacyVersion = typeof body.privacyVersion === "string" ? body.privacyVersion : "";
+  if (body.privacyAccepted !== true || !ACCEPTED_PRIVACY_VERSIONS.includes(privacyVersion)) {
     return { ok: false };
   }
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
@@ -173,7 +180,7 @@ function validate(body: Payload): { ok: true; data: Record<string, string> } | {
 
   return {
     ok: true,
-    data: { name, surname, email, phone, service, consultationMode, preferredTime, message, idempotencyKey },
+    data: { name, surname, email, phone, service, consultationMode, preferredTime, message, idempotencyKey, privacyVersion },
   };
 }
 
@@ -316,7 +323,7 @@ Deno.serve(async (request: Request) => {
     preferred_time: data.preferredTime || null,
     message: data.message,
     privacy_accepted_at: new Date().toISOString(),
-    privacy_version: PRIVACY_VERSION,
+    privacy_version: data.privacyVersion,
     idempotency_key: data.idempotencyKey,
   });
 

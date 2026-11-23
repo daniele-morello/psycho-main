@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { MapPin, Phone, Mail, Clock, CheckCircle2, Loader2 } from "lucide-react";
 import PrivacyNoticeDialog from "@/components/PrivacyNoticeDialog";
 
-const PRIVACY_VERSION = "2026-11-10";
+const PRIVACY_VERSION = "2026-11-23";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const services = [
@@ -136,7 +136,7 @@ export default function Contact() {
       surname: surname.trim(),
       email: email.trim(),
       phone: phone.trim(),
-      message: String(formData.get("message") || ""),
+      message: String(formData.get("message") || "").trim(),
       preferred_time: String(formData.get("preferred_time") || ""),
       service: selectedService,
       consultation_mode: consultationMode,
@@ -522,19 +522,19 @@ export default function Contact() {
 
                 <div>
                   <label className="block text-sm text-stone-700 mb-2 font-medium">
-                    Messaggio *
+                    Messaggio
                   </label>
                   <textarea
                     name="message"
-                    required
                     maxLength={2000}
                     rows={4}
+                    aria-describedby="message-hint"
                     className={inputClass + " resize-none"}
-                    placeholder="Raccontami brevemente come posso aiutarti..."
+                    placeholder="Opzionale"
                   />
-                  <p className="mt-2 text-xs text-stone-500 leading-relaxed">
-                    Non inserire informazioni cliniche, diagnosi o dettagli
-                    sanitari in questo modulo.
+                  <p id="message-hint" className="mt-2 text-xs text-stone-500 leading-relaxed">
+                    Non inserire qui dettagli sulla tua salute: ne parleremo al
+                    primo colloquio.
                   </p>
                 </div>
 

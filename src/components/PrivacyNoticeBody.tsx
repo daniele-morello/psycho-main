@@ -55,7 +55,7 @@ export default function PrivacyNoticeBody() {
           <li>testo del messaggio;</li>
           <li>
             data e ora in cui la casella è stata selezionata e l’identificativo
-            tecnico della versione «2026-11-10»;
+            tecnico della versione «2026-11-23»;
           </li>
           <li>
             un codice casuale usato solo per riconoscere un nuovo invio della
@@ -118,7 +118,7 @@ export default function PrivacyNoticeBody() {
           paragrafo 1, lettera a), e non è un consenso esplicito ai sensi
           dell’articolo 9. La casella registra che la richiesta è stata inviata
           dopo aver potuto leggere questa informativa. Il sistema conserva
-          l’orario e la versione tecnica «2026-11-10».
+          l’orario e la versione tecnica «2026-11-23».
         </p>
       </section>
 
@@ -127,9 +127,9 @@ export default function PrivacyNoticeBody() {
           4. Dati particolari relativi alla salute
         </h3>
         <p>
-          Il modulo non contiene campi su salute, diagnosi o terapia. Sotto il
-          messaggio è chiesto di non inserire informazioni cliniche, diagnosi o
-          dettagli sanitari.
+          Il modulo non contiene campi su salute, diagnosi o terapia. Il
+          messaggio è facoltativo e sotto il campo è chiesto di non inserire
+          dettagli sulla salute, di cui si parlerà al primo colloquio.
         </p>
         <p>
           Il testo del messaggio viene comunque memorizzato nella tabella
@@ -151,12 +151,12 @@ export default function PrivacyNoticeBody() {
         </h3>
         <p>
           Per inviare la richiesta servono nome, cognome, email, servizio,
-          modalità preferita della consulenza (Online / In presenza),
-          messaggio e la selezione della casella. Senza questi elementi la
-          richiesta non viene salvata. Il servizio compare già impostato su
-          «Psicoterapia individuale» e può essere cambiato.
+          modalità preferita della consulenza (Online / In presenza) e la
+          selezione della casella. Senza questi elementi la richiesta non viene
+          salvata. Il servizio compare già impostato su «Psicoterapia
+          individuale» e può essere cambiato.
         </p>
-        <p>Telefono e orario preferito sono facoltativi.</p>
+        <p>Telefono, orario preferito e messaggio sono facoltativi.</p>
       </section>
 
       <section className="space-y-2">
@@ -178,6 +178,16 @@ export default function PrivacyNoticeBody() {
           speciali prima dell’invio delle email.
         </p>
         <p>
+          Le richieste si consultano solo da un’area riservata del sito, a cui
+          la professionista accede con password e con un secondo fattore (un
+          codice generato da un’app sul telefono). Il database restituisce le
+          richieste solo a quell’account e solo dopo il secondo fattore.
+          Dall’area riservata si può cambiare lo stato di una richiesta o
+          cancellarla, ma non modificare i dati inviati. La sessione si chiude
+          quando si chiude la scheda del browser o dopo 20 minuti di
+          inattività.
+        </p>
+        <p>
           Non risultano nel progetto altre misure dichiarate dallo studio, come
           certificazioni, una cifratura aggiuntiva scelta dal titolare o un
           registro dei trattamenti.
@@ -190,8 +200,8 @@ export default function PrivacyNoticeBody() {
         </h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>
-            Dr.ssa Jerarda Damaris Ceglia, che riceve l’avviso e può leggere le
-            richieste nel database.
+            Dr.ssa Jerarda Damaris Ceglia, che riceve l’avviso e legge le
+            richieste dall’area riservata del sito.
           </li>
           <li>
             Supabase, che ospita il database e la funzione. Il riferimento del
@@ -235,10 +245,18 @@ export default function PrivacyNoticeBody() {
         <h3 className="font-cormorant text-2xl text-sage-700">
           9. Tempi di conservazione
         </h3>
+        <p>Ogni richiesta salvata in contact_requests viene cancellata:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>6 mesi dopo che la professionista l’ha segnata come chiusa;</li>
+          <li>
+            in ogni caso 12 mesi dopo la ricezione, qualunque sia il suo stato.
+          </li>
+        </ul>
         <p>
-          Le richieste salvate in contact_requests non hanno, nel codice, una
-          scadenza né una cancellazione automatica. Da completare prima della
-          pubblicazione: indicare per quanto tempo restano conservate.
+          La cancellazione non è ancora automatica: l’area riservata segnala
+          alla professionista le richieste che hanno superato questi tempi e le
+          cancella con un comando. Una richiesta può essere cancellata anche
+          prima, su domanda dell’interessato (paragrafo 10).
         </p>
         <p>
           I codici HMAC del limite di invii sono organizzati in finestre orarie.
@@ -310,13 +328,11 @@ export default function PrivacyNoticeBody() {
         <h3 className="font-cormorant text-2xl text-sage-700">
           13. Data e versione
         </h3>
-        <p>Testo proposto il 17 novembre 2026.</p>
+        <p>Testo aggiornato il 23 novembre 2026.</p>
         <p>
-          La funzione già pubblicata accetta soltanto l’identificativo tecnico
-          «2026-11-10» e lo salva insieme alla richiesta. Questo testo non ha
-          ancora lo stesso identificativo. Da completare prima di una
-          pubblicazione allineata: aggiornare insieme il testo e l’identificativo
-          registrato.
+          Identificativo tecnico di questa versione: «2026-11-23». Viene salvato
+          insieme a ogni richiesta, così si può sapere quale testo era in vigore
+          al momento dell’invio.
         </p>
       </section>
     </article>

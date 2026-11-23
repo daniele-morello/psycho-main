@@ -151,7 +151,9 @@ export function AdminApp({ client }: { client: SupabaseClient }) {
         {stage.notice && (
           <p className="text-sm text-stone-700 bg-stone-100 rounded-lg px-3 py-2 mb-4">{stage.notice}</p>
         )}
-        <form onSubmit={handleLogin} className="space-y-4">
+        {/* key diverse: React crea caselle nuove a ogni schermata e il codice
+            non eredita l'email scritta nel modulo di accesso. */}
+        <form key="login" onSubmit={handleLogin} className="space-y-4">
           <input name="email" type="email" required autoComplete="username" placeholder="Email" className={inputClass} />
           <input
             name="password"
@@ -174,7 +176,7 @@ export function AdminApp({ client }: { client: SupabaseClient }) {
   if (stage.kind === "enroll" || stage.kind === "challenge") {
     const enrolling = stage.kind === "enroll";
     return (
-      <Card>
+      <Card key={stage.kind}>
         <ShieldCheck className="w-8 h-8 text-sage-600 mb-4" strokeWidth={1.5} />
         <h1 className="text-xl font-medium mb-1">
           {enrolling ? "Configura il secondo fattore" : "Codice di verifica"}
@@ -192,10 +194,12 @@ export function AdminApp({ client }: { client: SupabaseClient }) {
             </p>
           </div>
         )}
-        <form onSubmit={(e) => handleCode(e, stage.factorId)} className="space-y-4">
+        <form key={`code-${stage.factorId}`} onSubmit={(e) => handleCode(e, stage.factorId)} className="space-y-4">
           <input
             name="code"
             required
+            autoFocus
+            defaultValue=""
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9 ]{6,7}"

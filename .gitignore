@@ -22,3 +22,5 @@ dist-ssr
 *.sw?
 .env
 supabase/.temp/
+# Configurazione locale di Claude Code (avvio del sito in locale)
+.claude/

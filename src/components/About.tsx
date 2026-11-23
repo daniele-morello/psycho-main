@@ -52,7 +52,7 @@ export default function About() {
               Psicologa e psicoterapeuta, mi sono laureata all'Università di
               Caserta e mi sono specializzata in psicoterapia cognitivo-comportamentale.
               Negli anni ho maturato esperienza clinica in strutture pubbliche e
-              privato, accompagnando adulti, coppie e adolescenti.
+              private, accompagnando adulti, coppie e adolescenti.
             </p>
             <p className="text-stone-600 leading-relaxed mb-8">
               Credo che la psicoterapia sia prima di tutto un incontro umano.

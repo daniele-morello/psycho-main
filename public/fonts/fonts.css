@@ -1,0 +1,43 @@
+/* Font ospitati nel sito per la pagina statica dell'informativa (licenza SIL OFL). */
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./cormorant-garamond-latin-500-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(./cormorant-garamond-latin-600-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./cormorant-garamond-latin-500-italic.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Jost";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(./jost-latin-300-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Jost";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./jost-latin-400-normal.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Jost";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./jost-latin-500-normal.woff2) format("woff2");
+}

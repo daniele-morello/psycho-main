@@ -205,9 +205,9 @@ export default function PrivacyNoticeBody() {
           </li>
           <li>
             Supabase, che ospita il database e la funzione. Il riferimento del
-            progetto usato dal sito è cwxcfbmiwrbuaxjbeenf. Nel repository non
-            risultano il contratto, la regione del database né l’elenco dei
-            sub-responsabili.
+            progetto usato dal sito è cwxcfbmiwrbuaxjbeenf e il database si
+            trova nella regione eu-west-1 (Irlanda). Nel repository non
+            risultano il contratto né l’elenco dei sub-responsabili.
           </li>
           <li>
             Resend, che spedisce le email quando sono configurate la chiave e
@@ -233,11 +233,13 @@ export default function PrivacyNoticeBody() {
           8. Trasferimenti fuori dallo Spazio economico europeo
         </h3>
         <p>
-          Il progetto non indica la regione in cui Supabase conserva il database
-          e non documenta clausole contrattuali tipo, decisioni di adeguatezza o
-          altre garanzie per Supabase o Resend. Da completare prima della
-          pubblicazione: verificare dove sono trattati i dati e quali garanzie
-          degli articoli 44 e seguenti del Regolamento si applicano.
+          Il database Supabase si trova nella regione eu-west-1 (Irlanda,
+          Unione Europea). Il progetto non documenta dove vengono eseguite la
+          funzione e la spedizione delle email, né clausole contrattuali tipo,
+          decisioni di adeguatezza o altre garanzie per eventuali accessi da
+          fuori dello Spazio economico europeo da parte di Supabase o di
+          Resend. Da completare prima della pubblicazione: verificare quali
+          garanzie degli articoli 44 e seguenti del Regolamento si applicano.
         </p>
       </section>
 

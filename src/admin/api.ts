@@ -31,6 +31,22 @@ export type BookingSettings = {
   hours: WorkingInterval[];
 };
 
+export type BlockedPeriod = {
+  id: string;
+  starts_at: string; // ISO, con fuso
+  ends_at: string;
+  all_day: boolean;
+  label: string | null;
+};
+
+// Ora locale italiana "YYYY-MM-DDTHH:MM", convertita dal database.
+export type NewBlock = {
+  start_local: string;
+  end_local: string;
+  all_day: boolean;
+  label: string;
+};
+
 export type RequestsApi = {
   list(): Promise<ContactRequest[]>;
   setStatus(id: string, status: RequestStatus): Promise<void>;
@@ -39,6 +55,9 @@ export type RequestsApi = {
   deleteExpired(): Promise<number>;
   getSettings(): Promise<BookingSettings>;
   saveSettings(settings: BookingSettings): Promise<void>;
+  listBlocks(): Promise<BlockedPeriod[]>;
+  addBlock(block: NewBlock): Promise<void>;
+  removeBlock(id: string): Promise<void>;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
@@ -108,6 +127,28 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
       });
       if (error) throw error;
     },
+    async listBlocks() {
+      const { data, error } = await client
+        .from("blocked_periods")
+        .select("id,starts_at,ends_at,all_day,label")
+        .gt("ends_at", new Date().toISOString())
+        .order("starts_at");
+      if (error) throw error;
+      return (data ?? []) as BlockedPeriod[];
+    },
+    async addBlock(b) {
+      const { error } = await client.rpc("add_blocked_period", {
+        p_start_local: b.start_local,
+        p_end_local: b.end_local,
+        p_all_day: b.all_day,
+        p_label: b.label,
+      });
+      if (error) throw error;
+    },
+    async removeBlock(id) {
+      const { error } = await client.from("blocked_periods").delete().eq("id", id);
+      if (error) throw error;
+    },
   };
 }
 
@@ -174,7 +215,38 @@ export function demoApi(): RequestsApi {
       { weekday, start_time: "15:00", end_time: "19:00" },
     ]),
   };
+  // In demo l'ora locale è trattata come ora del browser: basta per l'anteprima.
+  let blocks: BlockedPeriod[] = [
+    {
+      id: "block-1",
+      starts_at: new Date(new Date(now + 10 * day).setHours(0, 0, 0, 0)).toISOString(),
+      ends_at: new Date(new Date(now + 17 * day).setHours(0, 0, 0, 0)).toISOString(),
+      all_day: true,
+      label: "Ferie",
+    },
+  ];
   return {
+    async listBlocks() {
+      return blocks
+        .filter((b) => new Date(b.ends_at).getTime() > Date.now())
+        .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+        .map((b) => ({ ...b }));
+    },
+    async addBlock(b) {
+      blocks = [
+        ...blocks,
+        {
+          id: `block-${Math.random().toString(36).slice(2)}`,
+          starts_at: new Date(b.start_local).toISOString(),
+          ends_at: new Date(b.end_local).toISOString(),
+          all_day: b.all_day,
+          label: b.label.trim() || null,
+        },
+      ];
+    },
+    async removeBlock(id) {
+      blocks = blocks.filter((b) => b.id !== id);
+    },
     async getSettings() {
       return { ...settings, hours: settings.hours.map((h) => ({ ...h })) };
     },

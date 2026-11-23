@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, LockKeyhole, LogOut, ShieldCheck } from "lucide-react";
 import Requests from "@/admin/Requests";
 import Settings from "@/admin/Settings";
+import Blocks from "@/admin/Blocks";
 import { supabaseApi, type RequestsApi } from "@/admin/api";
 
 const IDLE_LIMIT_MS = 20 * 60 * 1000;
@@ -233,7 +234,7 @@ export function Shell({
   api: RequestsApi;
   demo?: boolean;
 }) {
-  const [tab, setTab] = useState<"requests" | "settings">("requests");
+  const [tab, setTab] = useState<"requests" | "settings" | "blocks">("requests");
   const tabClass = (active: boolean) =>
     "px-3 py-1.5 rounded-full text-sm " +
     (active ? "bg-white text-sage-800" : "text-sage-100 hover:text-white");
@@ -252,13 +253,22 @@ export function Shell({
             <button onClick={() => setTab("settings")} aria-pressed={tab === "settings"} className={tabClass(tab === "settings")}>
               Impostazioni prenotazioni
             </button>
+            <button onClick={() => setTab("blocks")} aria-pressed={tab === "blocks"} className={tabClass(tab === "blocks")}>
+              Blocchi
+            </button>
           </nav>
           <button onClick={onSignOut} className="flex items-center gap-2 text-sm text-sage-100 hover:text-white">
             <LogOut className="w-4 h-4" /> Esci
           </button>
         </div>
       </header>
-      {tab === "requests" ? <Requests api={api} /> : <Settings api={api} />}
+      {tab === "requests" ? (
+        <Requests api={api} />
+      ) : tab === "settings" ? (
+        <Settings api={api} />
+      ) : (
+        <Blocks api={api} />
+      )}
     </div>
   );
 }

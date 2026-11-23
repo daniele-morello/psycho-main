@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 import type { BookingSettings, RequestsApi, WorkingInterval } from "@/admin/api";
+import { HOLIDAYS, closedHoliday } from "../../supabase/functions/availability/holidays";
+
+const MONTHS = [
+  "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+];
+const PATRON_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
+// Prossime chiusure per festività, a partire da oggi (ora italiana).
+function upcomingClosures(closed: string[], patron: string | null, count: number) {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" })
+    .format(new Date())
+    .split("-")
+    .map(Number);
+  const out: { date: Date; reason: string }[] = [];
+  for (let i = 0; i < 400 && out.length < count; i++) {
+    const date = new Date(Date.UTC(y, m - 1, d + i));
+    const reason = closedHoliday(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(), closed, patron);
+    if (reason) out.push({ date, reason });
+  }
+  return out;
+}
+const closureFormat = new Intl.DateTimeFormat("it-IT", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 
@@ -55,6 +78,9 @@ function validate(s: BookingSettings): string[] {
         errors.push(`${DAYS[d - 1]}: due fasce si sovrappongono.`);
       }
     });
+  }
+  if (s.patron_day !== null && !PATRON_DAY.test(s.patron_day)) {
+    errors.push("Santo patrono: scegli sia il giorno sia il mese, oppure «Nessuno».");
   }
   return [...new Set(errors)];
 }
@@ -117,6 +143,10 @@ export default function Settings({ api }: { api: RequestsApi }) {
       ],
     });
   };
+  // patron_day è "MM-DD"; durante la scelta può essere a metà ("06-" o "-13").
+  const [patronMonth = "", patronDay = ""] = (draft.patron_day ?? "-").split("-");
+  const setPatron = (month: string, day: string) =>
+    update({ patron_day: month || day ? `${month}-${day}` : null });
   const removeInterval = (index: number) => update({ hours: draft.hours.filter((_, i) => i !== index) });
 
   const save = async () => {
@@ -173,7 +203,7 @@ export default function Settings({ api }: { api: RequestsApi }) {
         <h2 className="text-lg font-medium mb-1">Orari di lavoro</h2>
         <p className="text-sm text-stone-500 mb-5">
           Puoi avere più fasce nello stesso giorno, ad esempio mattina e pomeriggio. Un giorno senza
-          fasce è chiuso.
+          fasce è chiuso: la domenica resta chiusa finché non le aggiungi una fascia.
         </p>
         <ul className="divide-y divide-stone-200">
           {DAYS.map((label, i) => {
@@ -237,6 +267,81 @@ export default function Settings({ api }: { api: RequestsApi }) {
               </li>
             );
           })}
+        </ul>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-stone-200 p-6">
+        <h2 className="text-lg font-medium mb-1">Festività</h2>
+        <p className="text-sm text-stone-500 mb-5">
+          Le festività spuntate sono chiuse alle prenotazioni. Togli la spunta per lavorare in quel giorno.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 mb-6">
+          {HOLIDAYS.map((h) => (
+            <label key={h.code} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.closed_holidays.includes(h.code)}
+                onChange={(e) =>
+                  update({
+                    closed_holidays: e.target.checked
+                      ? [...draft.closed_holidays, h.code]
+                      : draft.closed_holidays.filter((c) => c !== h.code),
+                  })
+                }
+              />
+              {h.label}
+            </label>
+          ))}
+        </div>
+
+        <div className="text-sm mb-6">
+          <span className="block text-stone-700 font-medium mb-2">Santo patrono del comune (chiuso)</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Giorno del santo patrono"
+              value={patronDay}
+              onChange={(e) => setPatron(patronMonth, e.target.value)}
+              className={timeClass}
+            >
+              <option value="">Giorno</option>
+              {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
+                <option key={d} value={d}>
+                  {Number(d)}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Mese del santo patrono"
+              value={patronMonth}
+              onChange={(e) => setPatron(e.target.value, patronDay)}
+              className={timeClass}
+            >
+              <option value="">Mese</option>
+              {MONTHS.map((name, i) => (
+                <option key={name} value={String(i + 1).padStart(2, "0")}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => update({ patron_day: null })}
+              className="text-stone-500 hover:text-stone-800 underline underline-offset-2"
+            >
+              Nessuno
+            </button>
+          </div>
+        </div>
+
+        <h3 className="text-sm font-medium text-stone-700 mb-2">Prossime chiusure per festività</h3>
+        <ul className="text-sm text-stone-600 space-y-1">
+          {upcomingClosures(draft.closed_holidays, PATRON_DAY.test(draft.patron_day ?? "") ? draft.patron_day : null, 5).map(
+            ({ date, reason }) => (
+              <li key={date.toISOString()}>
+                <span className="capitalize">{closureFormat.format(date)}</span> – {reason}
+              </li>
+            ),
+          )}
         </ul>
       </section>
 

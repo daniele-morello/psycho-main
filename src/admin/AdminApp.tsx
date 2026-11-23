@@ -5,6 +5,7 @@ import { Loader2, LockKeyhole, LogOut, ShieldCheck } from "lucide-react";
 import Requests from "@/admin/Requests";
 import Settings from "@/admin/Settings";
 import Blocks from "@/admin/Blocks";
+import Availability from "@/admin/Availability";
 import { supabaseApi, type RequestsApi } from "@/admin/api";
 
 const IDLE_LIMIT_MS = 20 * 60 * 1000;
@@ -234,7 +235,7 @@ export function Shell({
   api: RequestsApi;
   demo?: boolean;
 }) {
-  const [tab, setTab] = useState<"requests" | "settings" | "blocks">("requests");
+  const [tab, setTab] = useState<"requests" | "settings" | "blocks" | "availability">("requests");
   const tabClass = (active: boolean) =>
     "px-3 py-1.5 rounded-full text-sm " +
     (active ? "bg-white text-sage-800" : "text-sage-100 hover:text-white");
@@ -256,6 +257,9 @@ export function Shell({
             <button onClick={() => setTab("blocks")} aria-pressed={tab === "blocks"} className={tabClass(tab === "blocks")}>
               Blocchi
             </button>
+            <button onClick={() => setTab("availability")} aria-pressed={tab === "availability"} className={tabClass(tab === "availability")}>
+              Disponibilità
+            </button>
           </nav>
           <button onClick={onSignOut} className="flex items-center gap-2 text-sm text-sage-100 hover:text-white">
             <LogOut className="w-4 h-4" /> Esci
@@ -266,8 +270,10 @@ export function Shell({
         <Requests api={api} />
       ) : tab === "settings" ? (
         <Settings api={api} />
-      ) : (
+      ) : tab === "blocks" ? (
         <Blocks api={api} />
+      ) : (
+        <Availability api={api} />
       )}
     </div>
   );

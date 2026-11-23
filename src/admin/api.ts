@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ALL_HOLIDAY_CODES } from "../../supabase/functions/availability/holidays";
 
 export type RequestStatus = "new" | "contacted" | "closed";
 
@@ -29,6 +30,8 @@ export type BookingSettings = {
   min_notice_hours: number;
   max_days_ahead: number;
   hours: WorkingInterval[];
+  closed_holidays: string[];
+  patron_day: string | null; // "MM-DD"
 };
 
 export type BlockedPeriod = {
@@ -47,6 +50,11 @@ export type NewBlock = {
   label: string;
 };
 
+export type AvailabilityPreview = {
+  slots: string[]; // ISO
+  calendar: "ok" | "not_configured" | "error";
+};
+
 export type RequestsApi = {
   list(): Promise<ContactRequest[]>;
   setStatus(id: string, status: RequestStatus): Promise<void>;
@@ -58,6 +66,7 @@ export type RequestsApi = {
   listBlocks(): Promise<BlockedPeriod[]>;
   addBlock(block: NewBlock): Promise<void>;
   removeBlock(id: string): Promise<void>;
+  previewAvailability(): Promise<AvailabilityPreview>;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
@@ -98,7 +107,7 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
       const [settings, hours] = await Promise.all([
         client
           .from("booking_settings")
-          .select("session_minutes,buffer_minutes,min_notice_hours,max_days_ahead")
+          .select("session_minutes,buffer_minutes,min_notice_hours,max_days_ahead,closed_holidays,patron_day")
           .single(),
         client
           .from("working_hours")
@@ -124,6 +133,8 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
         p_min_notice_hours: s.min_notice_hours,
         p_max_days_ahead: s.max_days_ahead,
         p_hours: s.hours,
+        p_closed_holidays: s.closed_holidays,
+        p_patron_day: s.patron_day,
       });
       if (error) throw error;
     },
@@ -148,6 +159,11 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
     async removeBlock(id) {
       const { error } = await client.from("blocked_periods").delete().eq("id", id);
       if (error) throw error;
+    },
+    async previewAvailability() {
+      const { data, error } = await client.functions.invoke("availability", { method: "GET" });
+      if (error) throw error;
+      return data as AvailabilityPreview;
     },
   };
 }
@@ -214,6 +230,8 @@ export function demoApi(): RequestsApi {
       { weekday, start_time: "09:00", end_time: "13:00" },
       { weekday, start_time: "15:00", end_time: "19:00" },
     ]),
+    closed_holidays: [...ALL_HOLIDAY_CODES],
+    patron_day: null,
   };
   // In demo l'ora locale è trattata come ora del browser: basta per l'anteprima.
   let blocks: BlockedPeriod[] = [
@@ -226,6 +244,18 @@ export function demoApi(): RequestsApi {
     },
   ];
   return {
+    async previewAvailability() {
+      const slots: string[] = [];
+      for (let i = 2; i <= 9; i++) {
+        const d = new Date(now + i * day);
+        if (d.getDay() === 0 || d.getDay() === 6) continue;
+        for (const h of [9, 10, 11, 15, 16, 17]) {
+          if (i === 3 && h === 10) continue; // esempio: occupato nel calendario
+          slots.push(new Date(new Date(d).setHours(h, 0, 0, 0)).toISOString());
+        }
+      }
+      return { slots, calendar: "ok" };
+    },
     async listBlocks() {
       return blocks
         .filter((b) => new Date(b.ends_at).getTime() > Date.now())
@@ -248,10 +278,14 @@ export function demoApi(): RequestsApi {
       blocks = blocks.filter((b) => b.id !== id);
     },
     async getSettings() {
-      return { ...settings, hours: settings.hours.map((h) => ({ ...h })) };
+      return {
+        ...settings,
+        hours: settings.hours.map((h) => ({ ...h })),
+        closed_holidays: [...settings.closed_holidays],
+      };
     },
     async saveSettings(s) {
-      settings = { ...s, hours: s.hours.map((h) => ({ ...h })) };
+      settings = { ...s, hours: s.hours.map((h) => ({ ...h })), closed_holidays: [...s.closed_holidays] };
     },
     async list() {
       return rows.map((r) => ({ ...r }));

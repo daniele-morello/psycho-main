@@ -30,6 +30,23 @@ const dateFormat = new Intl.DateTimeFormat("it-IT", {
 const formatDate = (iso: string) => dateFormat.format(new Date(iso));
 const fullName = (r: ContactRequest) => [r.name, r.surname].filter(Boolean).join(" ");
 
+// Risposta precompilata: si apre nel programma di posta della professionista e
+// parte dalla sua casella. Nulla passa dai server del sito né da Resend.
+const REPLY_SUBJECT = "La tua richiesta di contatto – Dr.ssa Ceglia";
+function replyLink(r: ContactRequest): string {
+  const body = [
+    `Gentile ${r.name},`,
+    "",
+    "grazie per avermi contattata.",
+    "",
+    "",
+    "",
+    "Cordiali saluti,",
+    "Dr.ssa Jerarda Damaris Ceglia",
+  ].join("\r\n");
+  return `mailto:${r.email}?subject=${encodeURIComponent(REPLY_SUBJECT)}&body=${encodeURIComponent(body)}`;
+}
+
 export default function Requests({ api }: { api: RequestsApi }) {
   const [rows, setRows] = useState<ContactRequest[] | null>(null);
   const [error, setError] = useState("");
@@ -38,6 +55,7 @@ export default function Requests({ api }: { api: RequestsApi }) {
   const [expired, setExpired] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [askContacted, setAskContacted] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -192,6 +210,7 @@ export default function Requests({ api }: { api: RequestsApi }) {
                     onClick={() => {
                       setSelectedId(r.id);
                       setConfirmDelete(false);
+                      setAskContacted(null);
                     }}
                     className={
                       "w-full text-left bg-white rounded-xl border px-4 py-3 hover:border-sage-400 " +
@@ -237,10 +256,14 @@ export default function Requests({ api }: { api: RequestsApi }) {
 
               <div className="flex flex-wrap gap-2 mb-6">
                 <a
-                  href={`mailto:${selected.email}`}
+                  href={replyLink(selected)}
+                  onClick={() => {
+                    if (selected.status === "new") setAskContacted(selected.id);
+                  }}
+                  title="Apre una risposta già impostata nel tuo programma di posta"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-stone-300 text-sm hover:border-sage-400"
                 >
-                  <Mail className="w-4 h-4" /> {selected.email}
+                  <Mail className="w-4 h-4" /> Rispondi a {selected.email}
                 </a>
                 {selected.phone && (
                   <a
@@ -251,6 +274,30 @@ export default function Requests({ api }: { api: RequestsApi }) {
                   </a>
                 )}
               </div>
+
+              {askContacted === selected.id && selected.status === "new" && (
+                <div className="mb-6 rounded-xl border border-sage-200 bg-sage-50 px-4 py-3 text-sm">
+                  <p className="mb-3">Hai risposto a {fullName(selected)}? Segnare la richiesta come Ricontattata?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setAskContacted(null);
+                        void changeStatus("contacted");
+                      }}
+                      disabled={busy}
+                      className="px-4 py-2 rounded-full bg-sage-700 text-white hover:bg-sage-800 disabled:opacity-60"
+                    >
+                      Sì, Ricontattata
+                    </button>
+                    <button
+                      onClick={() => setAskContacted(null)}
+                      className="px-4 py-2 rounded-full border border-stone-300 bg-white"
+                    >
+                      Non ancora
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm mb-6">
                 <dt className="text-stone-500">Servizio</dt>

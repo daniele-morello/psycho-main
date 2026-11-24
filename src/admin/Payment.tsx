@@ -2,12 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { PaymentSettings, RequestsApi } from "@/admin/api";
 import {
+  bankLines,
   cancellationText,
   formatEuro,
   paymentDeadlineText,
   platformText,
   videoInstructionsText,
 } from "@/lib/paymentText";
+
+// IBAN senza spazi e maiuscolo; controllo di formato e cifre di controllo (mod 97).
+const normalizeIban = (s: string) => s.replace(/\s+/g, "").toUpperCase();
+function ibanValid(iban: string): boolean {
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+  const moved = iban.slice(4) + iban.slice(0, 4);
+  let rest = 0;
+  for (const ch of moved) {
+    const n = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const digit of n) rest = (rest * 10 + Number(digit)) % 97;
+  }
+  return rest === 1;
+}
 
 const inputClass =
   "px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 focus:outline-none focus:border-sage-500 focus:ring-2 focus:ring-sage-200";
@@ -28,8 +42,8 @@ function parsePrice(text: string): number | null {
 }
 
 const HOURS = {
-  payment_window_hours: { min: 1, max: 336, label: "Tempo per pagare dopo la conferma (ore)" },
-  payment_cutoff_hours: { min: 0, max: 336, label: "Pagamento comunque entro (ore prima della seduta)" },
+  payment_window_hours: { min: 1, max: 336, label: "Tempo per fare il bonifico dalla richiesta (ore)" },
+  payment_cutoff_hours: { min: 0, max: 336, label: "Bonifico comunque entro (ore prima della seduta)" },
   refund_notice_hours: { min: 0, max: 720, label: "Rimborso completo se si disdice almeno (ore prima)" },
 } as const;
 type HoursField = keyof typeof HOURS;
@@ -61,6 +75,10 @@ export default function Payment({ api }: { api: RequestsApi }) {
     if (Number.isNaN(cents) || (cents !== null && (cents < 100 || cents > 100000))) {
       e.push("Prezzo: scrivi un importo tra 1 e 1000 euro, ad esempio 70 o 70,50.");
     }
+    const iban = normalizeIban(draft.bank_iban ?? "");
+    if (iban && !ibanValid(iban)) e.push("IBAN: controlla di averlo scritto per intero e senza errori.");
+    const holder = (draft.bank_holder ?? "").trim();
+    if (holder && (holder.length < 2 || holder.length > 100)) e.push("Intestatario: tra 2 e 100 caratteri.");
     (Object.keys(HOURS) as HoursField[]).forEach((k) => {
       const v = draft[k];
       if (!Number.isInteger(v) || v < HOURS[k].min || v > HOURS[k].max) {
@@ -105,6 +123,8 @@ export default function Payment({ api }: { api: RequestsApi }) {
       cancellation_note: clean(draft.cancellation_note),
       video_platform: clean(draft.video_platform),
       video_instructions: clean(draft.video_instructions),
+      bank_holder: clean(draft.bank_holder),
+      bank_iban: clean(normalizeIban(draft.bank_iban ?? "")),
     };
     try {
       await api.savePayment(payload);
@@ -117,18 +137,56 @@ export default function Payment({ api }: { api: RequestsApi }) {
     }
   };
 
-  const terms: PaymentSettings = { ...draft, online_price_cents: Number.isNaN(cents) ? null : cents };
+  const terms: PaymentSettings = {
+    ...draft,
+    online_price_cents: Number.isNaN(cents) ? null : cents,
+    bank_iban: normalizeIban(draft.bank_iban ?? "") || null,
+  };
+  const onlineReady = terms.online_price_cents !== null && !!terms.bank_holder?.trim() && !!terms.bank_iban;
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
         <div>
-          <h2 className="text-lg font-medium mb-1">Pagamento del primo colloquio online</h2>
+          <h2 className="text-lg font-medium mb-1">Pagamento delle sedute online: bonifico anticipato</h2>
           <p className="text-sm text-stone-500">
-            Il pagamento è richiesto solo per le sedute online, dopo che hai confermato l'appuntamento. Le
-            sedute in presenza si pagano allo studio.
+            Per le sedute online accetti l'orario, invii le coordinate e confermi l'appuntamento solo quando ricevi il
+            bonifico. Le sedute in presenza si pagano allo studio.
+          </p>
+          <p className={"text-sm mt-2 " + (onlineReady ? "text-sage-700" : "text-clay-800")}>
+            {onlineReady
+              ? "Prenotazione online attiva sul sito."
+              : "Prenotazione online non attiva: servono prezzo, intestatario e IBAN. Finché mancano, dal sito si prenota solo in presenza."}
           </p>
         </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <label className="block text-sm">
+            <span className="block text-stone-700 font-medium mb-2">Intestatario del conto</span>
+            <input
+              maxLength={100}
+              value={draft.bank_holder ?? ""}
+              onChange={(e) => update({ bank_holder: e.target.value })}
+              autoComplete="off"
+              className={inputClass + " w-full"}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="block text-stone-700 font-medium mb-2">IBAN</span>
+            <input
+              maxLength={42}
+              value={draft.bank_iban ?? ""}
+              onChange={(e) => update({ bank_iban: e.target.value })}
+              autoComplete="off"
+              spellCheck={false}
+              className={inputClass + " w-full font-mono uppercase"}
+            />
+          </label>
+        </div>
+        <p className="text-xs text-stone-500 -mt-2">
+          La causale che chiederai è neutra, solo «Prenotazione rif.» e il codice: nessun riferimento alla psicoterapia
+          negli estratti conto tuoi e del paziente.
+        </p>
 
         <label className="block text-sm">
           <span className="block text-stone-700 font-medium mb-2">Prezzo (€)</span>
@@ -140,7 +198,7 @@ export default function Payment({ api }: { api: RequestsApi }) {
             className={inputClass + " w-32"}
           />
           <span className="block text-xs text-stone-500 mt-1">
-            Finché il prezzo è vuoto, il pagamento online non si può chiedere.
+            Finché il prezzo è vuoto, il bonifico non si può chiedere.
           </span>
         </label>
 
@@ -204,10 +262,15 @@ export default function Payment({ api }: { api: RequestsApi }) {
       </section>
 
       <section className="bg-sage-50 rounded-2xl border border-sage-200 p-6 text-sm space-y-2">
-        <h2 className="text-base font-medium mb-1">Cosa vedrà il paziente prima di pagare</h2>
+        <h2 className="text-base font-medium mb-1">Cosa riceverà il paziente nella richiesta di bonifico</h2>
         <p>
           <strong>Importo:</strong>{" "}
           {terms.online_price_cents !== null ? formatEuro(terms.online_price_cents) : "non impostato"}
+        </p>
+        <p>
+          <strong>Coordinate:</strong>{" "}
+          {bankLines(terms, "ABC123")?.join(" · ") ?? "intestatario e IBAN non impostati"}
+          {terms.bank_iban && !ibanValid(terms.bank_iban) ? " (IBAN da controllare)" : ""}
         </p>
         <p>
           <strong>Scadenza:</strong> {paymentDeadlineText(terms)}

@@ -7,7 +7,8 @@ import Settings from "@/admin/Settings";
 import Blocks from "@/admin/Blocks";
 import Availability from "@/admin/Availability";
 import Payment from "@/admin/Payment";
-import { supabaseApi, type RequestsApi } from "@/admin/api";
+import Bookings from "@/admin/Bookings";
+import { bookingTodo, supabaseApi, type RequestsApi } from "@/admin/api";
 
 const IDLE_LIMIT_MS = 20 * 60 * 1000;
 
@@ -236,10 +237,45 @@ export function Shell({
   api: RequestsApi;
   demo?: boolean;
 }) {
-  const [tab, setTab] = useState<"requests" | "settings" | "blocks" | "availability" | "payment">("requests");
+  type Tab = "bookings" | "requests" | "settings" | "blocks" | "availability" | "payment";
+  const [tab, setTab] = useState<Tab>("bookings");
+  const [todo, setTodo] = useState({ pending: 0, proposedDue: 0, linkMissing: 0, awaiting: 0 });
+
+  // Promemoria sempre visibile: prenotazioni e sedute da confermare, link non inviati.
+  const refreshTodo = useCallback(async () => {
+    try {
+      setTodo(bookingTodo(await api.listBookings()));
+    } catch {
+      /* il tab Prenotazioni mostra l'errore */
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void refreshTodo();
+  }, [refreshTodo]);
+
+  const tabs: { id: Tab; label: string; badge?: number }[] = [
+    { id: "bookings", label: "Prenotazioni", badge: todo.pending + todo.proposedDue + todo.linkMissing },
+    { id: "requests", label: "Richieste" },
+    { id: "settings", label: "Impostazioni prenotazioni" },
+    { id: "blocks", label: "Blocchi" },
+    { id: "availability", label: "Disponibilità" },
+    { id: "payment", label: "Pagamento e disdetta" },
+  ];
   const tabClass = (active: boolean) =>
-    "px-3 py-1.5 rounded-full text-sm " +
+    "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5 " +
     (active ? "bg-white text-sage-800" : "text-sage-100 hover:text-white");
+  const todoText = [
+    todo.pending > 0 ? `${todo.pending} ${todo.pending === 1 ? "prenotazione da confermare" : "prenotazioni da confermare"}` : "",
+    todo.proposedDue > 0 ? `${todo.proposedDue} ${todo.proposedDue === 1 ? "seduta da confermare" : "sedute da confermare"}` : "",
+    todo.linkMissing > 0
+      ? `${todo.linkMissing} ${todo.linkMissing === 1 ? "richiesta di bonifico da inviare" : "richieste di bonifico da inviare"}`
+      : "",
+    todo.awaiting - todo.linkMissing > 0
+      ? `${todo.awaiting - todo.linkMissing} ${todo.awaiting - todo.linkMissing === 1 ? "bonifico atteso da verificare" : "bonifici attesi da verificare"}`
+      : "",
+  ].filter(Boolean);
+
   return (
     <div className="min-h-screen">
       <header className="bg-sage-800 text-white">
@@ -248,29 +284,36 @@ export function Shell({
             Area riservata
             {demo && <span className="ml-2 text-xs bg-clay-400 text-white rounded px-2 py-0.5">DEMO – dati inventati</span>}
           </p>
-          <nav className="flex items-center gap-1 order-3 sm:order-none w-full sm:w-auto" aria-label="Sezioni">
-            <button onClick={() => setTab("requests")} aria-pressed={tab === "requests"} className={tabClass(tab === "requests")}>
-              Richieste
-            </button>
-            <button onClick={() => setTab("settings")} aria-pressed={tab === "settings"} className={tabClass(tab === "settings")}>
-              Impostazioni prenotazioni
-            </button>
-            <button onClick={() => setTab("blocks")} aria-pressed={tab === "blocks"} className={tabClass(tab === "blocks")}>
-              Blocchi
-            </button>
-            <button onClick={() => setTab("availability")} aria-pressed={tab === "availability"} className={tabClass(tab === "availability")}>
-              Disponibilità
-            </button>
-            <button onClick={() => setTab("payment")} aria-pressed={tab === "payment"} className={tabClass(tab === "payment")}>
-              Pagamento e disdetta
-            </button>
+          <nav className="flex flex-wrap items-center gap-1 order-3 lg:order-none w-full lg:w-auto" aria-label="Sezioni">
+            {tabs.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)} aria-pressed={tab === t.id} className={tabClass(tab === t.id)}>
+                {t.label}
+                {t.badge ? (
+                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-clay-500 text-white text-xs leading-5 text-center">
+                    {t.badge}
+                  </span>
+                ) : null}
+              </button>
+            ))}
           </nav>
           <button onClick={onSignOut} className="flex items-center gap-2 text-sm text-sage-100 hover:text-white">
             <LogOut className="w-4 h-4" /> Esci
           </button>
         </div>
       </header>
-      {tab === "requests" ? (
+      {todoText.length > 0 && tab !== "bookings" && (
+        <div className="bg-clay-100 border-b border-clay-200 text-sm">
+          <div className="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+            <span>Da fare: {todoText.join(" · ")}.</span>
+            <button onClick={() => setTab("bookings")} className="underline underline-offset-2">
+              Vai alle prenotazioni
+            </button>
+          </div>
+        </div>
+      )}
+      {tab === "bookings" ? (
+        <Bookings api={api} onChange={() => void refreshTodo()} />
+      ) : tab === "requests" ? (
         <Requests api={api} />
       ) : tab === "settings" ? (
         <Settings api={api} />

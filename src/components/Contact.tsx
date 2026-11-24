@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { MapPin, Phone, Mail, Clock, CheckCircle2, Loader2 } from "lucide-react";
 import PrivacyNoticeDialog from "@/components/PrivacyNoticeDialog";
+import BookingForm from "@/components/BookingForm";
+import { emailError, personNameError, phoneError } from "@/lib/validation";
 
-const PRIVACY_VERSION = "2026-11-23";
+const PRIVACY_VERSION = "2026-11-24";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const services = [
@@ -17,46 +19,12 @@ const inputClass =
   "w-full px-4 py-3 rounded-lg border border-stone-300 bg-clay-50/50 text-stone-800 placeholder-stone-400 focus:outline-none focus:border-sage-500 focus:ring-2 focus:ring-sage-200 transition-all";
 const consultationModes = ["Online", "In presenza"] as const;
 const CONSULTATION_REQUIRED_MESSAGE = "Seleziona la modalità della consulenza";
-const PERSON_NAME = /^[\p{L}][\p{L}\p{M}\s'\u2018\u2019\u02BC-]{0,79}$/u;
-const PHONE_NUMBER = /^\+?[0-9]{6,30}$/;
-const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STUDIO_ADDRESS = "Via dei Colli 18, Padova";
 const STUDIO_PHONE_TEXT = "+39 340 123 4567";
 const STUDIO_PHONE_LINK = "tel:+393401234567";
 const STUDIO_EMAIL = "jerardadamarisceglia@gmail.com";
 const contactLinkClass =
   "text-sm text-sage-100/70 no-underline select-text rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200";
-
-function personNameError(value: string, label: "nome" | "cognome"): string {
-  const text = value.trim();
-  if (!text) return `Inserisci il ${label}.`;
-  if (!PERSON_NAME.test(text)) {
-    return `Il ${label} può contenere solo lettere, spazi, apostrofi e trattini, senza numeri.`;
-  }
-  return "";
-}
-
-function emailError(value: string): string {
-  const text = value.trim();
-  if (!text) return "Inserisci un indirizzo email.";
-  if (!EMAIL_ADDRESS.test(text) || text.length > 254) {
-    return "Inserisci un indirizzo email valido, ad esempio nome@dominio.it.";
-  }
-  return "";
-}
-
-function phoneError(value: string): string {
-  const text = value.trim();
-  if (!text) return "";
-  const digits = text.startsWith("+") ? text.slice(1) : text;
-  if (/^[0-9]+$/.test(digits) && digits.length < 6) {
-    return "Il numero deve contenere almeno 6 cifre. Puoi aggiungere un + all'inizio.";
-  }
-  if (!PHONE_NUMBER.test(text)) {
-    return "Inserisci solo cifre, con un eventuale + all'inizio.";
-  }
-  return "";
-}
 
 export default function Contact() {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
@@ -74,6 +42,7 @@ export default function Contact() {
     phone: "",
   });
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [kind, setKind] = useState<"info" | "booking">("info");
   const idempotencyKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
@@ -265,7 +234,32 @@ export default function Contact() {
           </div>
 
           <div className="reveal">
-            {status === "success" ? (
+            <div className="flex gap-2 mb-4" role="group" aria-label="Tipo di richiesta">
+              {(
+                [
+                  ["info", "Chiedo informazioni"],
+                  ["booking", "Prenoto il primo colloquio"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={kind === value}
+                  onClick={() => setKind(value)}
+                  className={
+                    "px-4 py-2 rounded-full text-sm border transition-colors " +
+                    (kind === value
+                      ? "bg-clay-50 text-sage-800 border-clay-50"
+                      : "bg-transparent text-sage-100 border-sage-400 hover:border-sage-200")
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {kind === "booking" ? (
+              <BookingForm onOpenPrivacy={() => setPrivacyOpen(true)} />
+            ) : status === "success" ? (
               <div className="bg-clay-50 rounded-2xl p-10 text-center h-full flex flex-col items-center justify-center">
                 <CheckCircle2 className="w-16 h-16 text-sage-600 mb-5" strokeWidth={1.2} />
                 <h3 className="text-2xl text-stone-800 font-medium mb-3">

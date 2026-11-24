@@ -25,9 +25,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 // Versione attuale dell'informativa. Durante il passaggio è accettata anche la
 // precedente, così il sito già pubblicato continua a funzionare finché non arriva
 // il push. Con la richiesta si salva la versione che la persona ha visto davvero.
-// Togliere "2026-11-10" dopo che il nuovo sito è online.
-const PRIVACY_VERSION = "2026-11-23";
-const ACCEPTED_PRIVACY_VERSIONS = [PRIVACY_VERSION, "2026-11-10"];
+// Togliere "2026-11-23" circa un giorno dopo che il nuovo sito è online.
+const PRIVACY_VERSION = "2026-11-24";
+const ACCEPTED_PRIVACY_VERSIONS = [PRIVACY_VERSION, "2026-11-23"];
 const IDEMPOTENCY_CONSTRAINT = "contact_requests_idempotency_key_key";
 const RATE_LIMIT_PER_HOUR = 5;
 const MAX_BODY_BYTES = 20_000;

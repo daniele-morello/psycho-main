@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ALL_HOLIDAY_CODES } from "../../supabase/functions/availability/holidays";
+import { ALL_HOLIDAY_CODES } from "../../supabase/functions/_shared/holidays";
 
 export type RequestStatus = "new" | "contacted" | "closed";
 
@@ -32,6 +32,7 @@ export type BookingSettings = {
   hours: WorkingInterval[];
   closed_holidays: string[];
   patron_day: string | null; // "MM-DD"
+  confirm_window_hours: number;
 };
 
 export type BlockedPeriod = {
@@ -58,10 +59,102 @@ export type PaymentSettings = {
   cancellation_note: string | null;
   video_platform: string | null;
   video_instructions: string | null;
+  bank_holder: string | null;
+  bank_iban: string | null; // senza spazi, maiuscolo
 };
 
 const PAYMENT_COLUMNS =
-  "online_price_cents,payment_window_hours,payment_cutoff_hours,refund_notice_hours,cancellation_note,video_platform,video_instructions";
+  "online_price_cents,payment_window_hours,payment_cutoff_hours,refund_notice_hours,cancellation_note,video_platform,video_instructions,bank_holder,bank_iban";
+
+export type BookingStatus =
+  | "pending"
+  | "proposed"
+  | "declined"
+  | "confirmed"
+  | "awaiting_payment"
+  | "paid"
+  | "cancelled"
+  | "expired";
+
+export type Booking = {
+  id: string;
+  ref: string;
+  created_at: string;
+  starts_at: string;
+  ends_at: string;
+  mode: "online" | "in_presenza";
+  status: BookingStatus;
+  name: string;
+  surname: string;
+  email: string;
+  phone: string | null;
+  confirm_deadline: string | null;
+  payment_deadline: string | null;
+  price_cents: number | null;
+  pay_token: string | null;
+  link_sent_at: string | null;
+  paid_at: string | null;
+  // Sedute successive: id della prima prenotazione (da cui vengono nome e
+  // contatti) e serie di appartenenza. null per la prima prenotazione.
+  first_booking_id: string | null;
+  series_id: string | null;
+  payment_waived: boolean; // seduta online gratuita (casi straordinari)
+};
+
+export type BookingAction =
+  | "confirm"
+  | "mark_paid"
+  | "waive_payment"
+  | "decline"
+  | "cancel"
+  | "cancel_series"
+  | "link_sent"
+  | "delete";
+
+// Le sedute proposte compaiono tra le cose da confermare quando mancano al
+// massimo questi giorni.
+export const PROPOSED_NOTICE_DAYS = 7;
+
+export const isProposedDue = (b: Booking, now = Date.now()) =>
+  b.status === "proposed" && Date.parse(b.starts_at) - now <= PROPOSED_NOTICE_DAYS * 86_400_000;
+
+// Cose da fare dell'area riservata (contatore e barra "Da fare").
+export function bookingTodo(list: Booking[], now = Date.now()) {
+  return {
+    pending: list.filter((b) => b.status === "pending").length,
+    proposedDue: list.filter((b) => isProposedDue(b, now)).length,
+    awaiting: list.filter((b) => b.status === "awaiting_payment").length,
+    linkMissing: list.filter((b) => b.status === "awaiting_payment" && !b.link_sent_at).length,
+  };
+}
+
+export type CalendarInterval = { start: string; end: string };
+export type CalendarData = {
+  google: "ok" | "not_configured" | "error";
+  busy: CalendarInterval[]; // impegni Google: solo occupato, nessun titolo
+  settings: {
+    session_minutes: number;
+    buffer_minutes: number;
+    timezone: string;
+    closed_holidays: string[];
+    patron_day: string | null;
+  };
+  hours: { weekday: number; start: string; end: string }[];
+  blocks: (CalendarInterval & { label: string | null })[];
+  bookings: (CalendarInterval & { id: string; ref: string; status: BookingStatus; mode: Booking["mode"] })[];
+};
+
+const BOOKING_COLUMNS =
+  "id,ref,created_at,starts_at,ends_at,mode,status,name,surname,email,phone,confirm_deadline,payment_deadline,price_cents,pay_token,link_sent_at,paid_at,first_booking_id,series_id,payment_waived," +
+  "first:bookings!bookings_first_booking_id_fkey(name,surname,email,phone)";
+
+type BookingRowWithFirst = Booking & {
+  first: Pick<Booking, "name" | "surname" | "email" | "phone"> | null;
+};
+
+// Le sedute successive non hanno dati propri: li prendono dalla prima prenotazione.
+const withPatient = ({ first, ...b }: BookingRowWithFirst): Booking =>
+  first ? { ...b, name: first.name, surname: first.surname, email: first.email, phone: first.phone } : b;
 
 export type AvailabilityPreview = {
   slots: string[]; // ISO
@@ -82,7 +175,23 @@ export type RequestsApi = {
   previewAvailability(): Promise<AvailabilityPreview>;
   getPayment(): Promise<PaymentSettings>;
   savePayment(p: PaymentSettings): Promise<void>;
+  listBookings(): Promise<Booking[]>;
+  manageBooking(action: BookingAction, id: string): Promise<{ code?: string }>;
+  calendar(from: string, to: string): Promise<CalendarData>;
+  schedule(id: string, mode: Booking["mode"], starts: string[]): Promise<{ code?: string }>;
+  move(id: string, start: string): Promise<{ code?: string }>;
 };
+
+async function invokeManage(client: SupabaseClient, body: Record<string, unknown>): Promise<{ code?: string; data?: unknown }> {
+  const { data, error } = await client.functions.invoke("manage-booking", { body });
+  if (error) {
+    // Il codice dell'errore (per esempio "payment_not_configured") arriva nel corpo.
+    const context = (error as { context?: Response }).context;
+    const res = context ? await context.json().catch(() => null) : null;
+    return { code: (res as { code?: string } | null)?.code ?? "error" };
+  }
+  return { data };
+}
 
 const hhmm = (t: string) => t.slice(0, 5);
 
@@ -122,7 +231,7 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
       const [settings, hours] = await Promise.all([
         client
           .from("booking_settings")
-          .select("session_minutes,buffer_minutes,min_notice_hours,max_days_ahead,closed_holidays,patron_day")
+          .select("session_minutes,buffer_minutes,min_notice_hours,max_days_ahead,closed_holidays,patron_day,confirm_window_hours")
           .single(),
         client
           .from("working_hours")
@@ -152,6 +261,11 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
         p_patron_day: s.patron_day,
       });
       if (error) throw error;
+      const { error: confirmError } = await client
+        .from("booking_settings")
+        .update({ confirm_window_hours: s.confirm_window_hours })
+        .eq("id", true);
+      if (confirmError) throw confirmError;
     },
     async listBlocks() {
       const { data, error } = await client
@@ -188,6 +302,32 @@ export function supabaseApi(client: SupabaseClient): RequestsApi {
     async savePayment(p) {
       const { error } = await client.from("booking_settings").update(p).eq("id", true);
       if (error) throw error;
+    },
+    async listBookings() {
+      const { data, error } = await client
+        .from("bookings")
+        .select(BOOKING_COLUMNS)
+        .order("starts_at", { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      return ((data ?? []) as unknown as BookingRowWithFirst[]).map(withPatient);
+    },
+    async manageBooking(action, id) {
+      const { code } = await invokeManage(client, { action, id });
+      return { code };
+    },
+    async calendar(from, to) {
+      const { code, data } = await invokeManage(client, { action: "calendar", from, to });
+      if (code) throw new Error(code);
+      return data as CalendarData;
+    },
+    async schedule(id, mode, starts) {
+      const { code } = await invokeManage(client, { action: "schedule", id, mode, starts });
+      return { code };
+    },
+    async move(id, start) {
+      const { code } = await invokeManage(client, { action: "move", id, start });
+      return { code };
     },
   };
 }
@@ -256,6 +396,7 @@ export function demoApi(): RequestsApi {
     ]),
     closed_holidays: [...ALL_HOLIDAY_CODES],
     patron_day: null,
+    confirm_window_hours: 48,
   };
   // In demo l'ora locale è trattata come ora del browser: basta per l'anteprima.
   let blocks: BlockedPeriod[] = [
@@ -275,8 +416,161 @@ export function demoApi(): RequestsApi {
     cancellation_note: null,
     video_platform: "Esempio Video",
     video_instructions: "Riceverai il link della videochiamata via email il giorno prima della seduta.",
+    bank_holder: "Esempio Intestatario",
+    bank_iban: "IT60X0542811101000000123456", // IBAN di esempio usato nella documentazione bancaria
   };
+  const at = (days: number, hour: number) => {
+    const d = new Date(now + days * day);
+    d.setHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+  const demoBooking = (b: Partial<Booking> & Pick<Booking, "id" | "ref" | "status" | "mode" | "name" | "surname" | "starts_at">): Booking => ({
+    created_at: new Date(now - 3_600_000).toISOString(),
+    ends_at: new Date(Date.parse(b.starts_at) + 50 * 60_000).toISOString(),
+    email: `${b.name.toLowerCase()}.${b.surname.toLowerCase()}@example.com`,
+    phone: null,
+    confirm_deadline: new Date(now + 40 * 3_600_000).toISOString(),
+    payment_deadline: null,
+    price_cents: null,
+    pay_token: null,
+    link_sent_at: null,
+    paid_at: null,
+    first_booking_id: null,
+    series_id: null,
+    payment_waived: false,
+    ...b,
+  });
+  const ACTIVE: BookingStatus[] = ["pending", "proposed", "awaiting_payment", "confirmed", "paid"];
+  const overlaps = (start: number, end: number, skipId?: string) =>
+    bookings.some(
+      (x) => x.id !== skipId && ACTIVE.includes(x.status) && Date.parse(x.starts_at) < end && start < Date.parse(x.ends_at),
+    );
+  let bookings: Booking[] = [
+    demoBooking({ id: "b1", ref: "A7K2C9", status: "pending", mode: "in_presenza", name: "Esempio", surname: "Quattro", starts_at: at(3, 10) }),
+    demoBooking({ id: "b2", ref: "F31B07", status: "pending", mode: "online", name: "Esempio", surname: "Cinque", starts_at: at(4, 16) }),
+    demoBooking({
+      id: "b3", ref: "9D04EE", status: "awaiting_payment", mode: "online", name: "Esempio", surname: "Sei", starts_at: at(6, 11),
+      payment_deadline: new Date(now + 30 * 3_600_000).toISOString(), price_cents: 7000,
+    }),
+    demoBooking({ id: "b4", ref: "C2A851", status: "confirmed", mode: "in_presenza", name: "Esempio", surname: "Sette", starts_at: at(1, 9) }),
+    demoBooking({
+      id: "b5", ref: "E81F3A", status: "proposed", mode: "in_presenza", name: "Esempio", surname: "Sette", starts_at: at(5, 9),
+      confirm_deadline: null, first_booking_id: "b4", series_id: "s1",
+    }),
+    demoBooking({
+      id: "b6", ref: "07BD52", status: "proposed", mode: "in_presenza", name: "Esempio", surname: "Sette", starts_at: at(12, 9),
+      confirm_deadline: null, first_booking_id: "b4", series_id: "s1",
+    }),
+  ];
   return {
+    async listBookings() {
+      return bookings.map((b) => ({ ...b }));
+    },
+    async calendar(from, to) {
+      const f = Date.parse(from);
+      const t = Date.parse(to);
+      const busy: CalendarInterval[] = [];
+      // Impegni finti nel calendario Google: martedì 15-17, giovedì 9-10:30.
+      for (let d = new Date(f); d.getTime() < t; d = new Date(d.getTime() + day)) {
+        const wd = d.getDay();
+        const slot = (h1: number, m1: number, h2: number, m2: number) =>
+          busy.push({
+            start: new Date(new Date(d).setHours(h1, m1, 0, 0)).toISOString(),
+            end: new Date(new Date(d).setHours(h2, m2, 0, 0)).toISOString(),
+          });
+        if (wd === 2) slot(15, 0, 17, 0);
+        if (wd === 4) slot(9, 0, 10, 30);
+      }
+      return {
+        google: "ok",
+        busy,
+        settings: {
+          session_minutes: settings.session_minutes,
+          buffer_minutes: settings.buffer_minutes,
+          timezone: "Europe/Rome",
+          closed_holidays: settings.closed_holidays,
+          patron_day: settings.patron_day,
+        },
+        hours: settings.hours.map((h) => ({ weekday: h.weekday, start: h.start_time, end: h.end_time })),
+        blocks: blocks
+          .filter((b) => Date.parse(b.starts_at) < t && Date.parse(b.ends_at) > f)
+          .map((b) => ({ start: b.starts_at, end: b.ends_at, label: b.label })),
+        bookings: bookings
+          .filter((b) => ACTIVE.includes(b.status) && Date.parse(b.starts_at) < t && Date.parse(b.ends_at) > f)
+          .map((b) => ({ id: b.id, ref: b.ref, start: b.starts_at, end: b.ends_at, status: b.status, mode: b.mode })),
+      };
+    },
+    async schedule(id, mode, starts) {
+      const b = bookings.find((x) => x.id === id);
+      if (!b) return { code: "not_found" };
+      const root = bookings.find((x) => x.id === (b.first_booking_id ?? b.id)) ?? b;
+      const length = settings.session_minutes * 60_000;
+      if (starts.some((s) => overlaps(Date.parse(s), Date.parse(s) + length))) return { code: "slot_taken" };
+      const series = starts.length > 1 ? crypto.randomUUID() : null;
+      bookings = [
+        ...bookings,
+        ...starts.map((s) =>
+          demoBooking({
+            id: crypto.randomUUID(),
+            ref: Math.random().toString(16).slice(2, 8).toUpperCase(),
+            status: "proposed",
+            mode,
+            name: root.name,
+            surname: root.surname,
+            email: root.email,
+            starts_at: s,
+            ends_at: new Date(Date.parse(s) + length).toISOString(),
+            confirm_deadline: null,
+            first_booking_id: root.id,
+            series_id: series,
+          }),
+        ),
+      ];
+      return {};
+    },
+    async move(id, start) {
+      const b = bookings.find((x) => x.id === id);
+      if (!b || !ACTIVE.includes(b.status)) return { code: "wrong_status" };
+      const length = Date.parse(b.ends_at) - Date.parse(b.starts_at);
+      const s = Date.parse(start);
+      if (overlaps(s, s + length, id)) return { code: "slot_taken" };
+      bookings = bookings.map((x) =>
+        x.id === id ? { ...x, starts_at: new Date(s).toISOString(), ends_at: new Date(s + length).toISOString() } : x,
+      );
+      return {};
+    },
+    async manageBooking(action, id) {
+      const b = bookings.find((x) => x.id === id);
+      if (!b) return { code: "not_found" };
+      if (action === "delete") {
+        bookings = bookings.filter((x) => x.id !== id && x.first_booking_id !== id);
+        return {};
+      }
+      if (action === "cancel_series") {
+        bookings = bookings.map((x) =>
+          x.series_id && x.series_id === b.series_id && x.status === "proposed" && x.starts_at >= b.starts_at
+            ? { ...x, status: "cancelled" }
+            : x,
+        );
+        return {};
+      }
+      const patch: Partial<Booking> =
+        action === "waive_payment"
+          ? { status: "confirmed", payment_waived: true, pay_token: null, payment_deadline: null, price_cents: null }
+        : action === "mark_paid"
+          ? b.status === "awaiting_payment" ? { status: "paid", paid_at: new Date().toISOString() } : {}
+        : action === "decline" ? { status: "declined" }
+        : action === "cancel" ? { status: "cancelled" }
+        : action === "link_sent" ? { link_sent_at: new Date().toISOString() }
+        : b.mode === "in_presenza" ? { status: "confirmed" }
+        : {
+          status: "awaiting_payment",
+          price_cents: payment.online_price_cents,
+          payment_deadline: new Date(Date.now() + payment.payment_window_hours * 3_600_000).toISOString(),
+        };
+      bookings = bookings.map((x) => (x.id === id ? { ...x, ...patch } : x));
+      return {};
+    },
     async getPayment() {
       return { ...payment };
     },

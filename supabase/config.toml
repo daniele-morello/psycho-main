@@ -3,3 +3,11 @@ verify_jwt = false
 
 [functions.availability]
 verify_jwt = false
+
+[functions.book]
+verify_jwt = false
+
+# Controlla da sé il token dell'admin (is_admin): verify_jwt resta attivo come
+# prima barriera.
+[functions.manage-booking]
+verify_jwt = true

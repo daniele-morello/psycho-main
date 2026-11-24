@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 import type { BookingSettings, RequestsApi, WorkingInterval } from "@/admin/api";
-import { HOLIDAYS, closedHoliday } from "../../supabase/functions/availability/holidays";
+import { HOLIDAYS, closedHoliday } from "../../supabase/functions/_shared/holidays";
 
 const MONTHS = [
   "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
@@ -55,6 +55,7 @@ const LIMITS = {
   buffer_minutes: { min: 0, max: 120, label: "Pausa tra due sedute (minuti)" },
   min_notice_hours: { min: 0, max: 720, label: "Preavviso minimo (ore)" },
   max_days_ahead: { min: 1, max: 365, label: "Prenotabile fino a (giorni avanti)" },
+  confirm_window_hours: { min: 1, max: 336, label: "Tempo per confermare una prenotazione (ore)" },
 } as const;
 type NumberField = keyof typeof LIMITS;
 
